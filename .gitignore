@@ -1,0 +1,8 @@
+# Python
+*.pyc
+__pycache__/
+
+# FreeCAD
+*.FCStd
+*.FCStd1
+*.FCStd~
