@@ -3,6 +3,7 @@
 __pycache__/
 
 # FreeCAD
+*.FCBak
 *.FCStd
 *.FCStd1
 *.FCStd~
