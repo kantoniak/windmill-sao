@@ -3,11 +3,20 @@ import FreeCAD as App
 import Part
 import Sketcher
 
+
+class AxisId(int, Enum):
+  X = -1 # Horizontal
+  Y = -2 # Vertical
+
+
 class ConstraintAttachment(int, Enum):
-    EDGE = 0
-    START_POINT = 1
-    END_POINT = 2
-    CENTER = 4 # For ellipses and arcs only
+  EDGE = 0
+  START_POINT = 1
+  END_POINT = 2
+  CENTER = 3 # For ellipses and arcs only
+
+
+ORIGIN = (AxisId.X, ConstraintAttachment.START_POINT)
 
 
 def initParams(doc, params: dict):
@@ -71,3 +80,11 @@ def addRectangle(sketch, x1: float, y1: float, x2: float, y2: float):
   sketch.addConstraint(Sketcher.Constraint('Vertical', i4))    # left edge
 
   return (i1, i2, i3, i4)
+
+
+def addCenteredRectangle(sketch, width_expr, height_expr, around_obj, around_attachment):
+  (top, right, bottom, left) = addRectangle(sketch, -1, 1, 1, -1)
+  sketch.addConstraint(Sketcher.Constraint('Symmetric', right, ConstraintAttachment.END_POINT, left, ConstraintAttachment.END_POINT, around_obj, around_attachment))
+  addExpressionConstraint(sketch, 'DistanceX', width_expr, left, ConstraintAttachment.START_POINT, right, ConstraintAttachment.END_POINT)
+  addExpressionConstraint(sketch, 'DistanceY', height_expr, bottom, ConstraintAttachment.START_POINT, top, ConstraintAttachment.END_POINT)
+  return (top, right, bottom, left)
