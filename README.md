@@ -13,3 +13,11 @@ Dutch [tower mill](https://en.wikipedia.org/wiki/Tower_mill) in a [SAO (Simple A
     cd enclosure/
     freecadcmd model.py
     ```
+
+### Linux
+```bash
+# Install FreeCAD
+sudo add-apt-repository ppa:freecad-maintainers/freecad-stable
+sudo apt update
+sudo apt install freecad
+```
