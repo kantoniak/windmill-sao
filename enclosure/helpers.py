@@ -1,0 +1,73 @@
+from enum import Enum
+import FreeCAD as App
+import Part
+import Sketcher
+
+class ConstraintAttachment(int, Enum):
+    EDGE = 0
+    START_POINT = 1
+    END_POINT = 2
+    CENTER = 4 # For ellipses and arcs only
+
+
+def initParams(doc, params: dict):
+  sheet_label = "Params"
+  ss = doc.addObject("Spreadsheet::Sheet", sheet_label)
+
+  row = 1
+  for name, value in params.items():
+    if isinstance(value, str):
+        val_str = value
+    else:
+        val_str = str(value)
+
+    ss.set(f"A{row}", name)
+    ss.set(f"B{row}", val_str)
+    ss.setAlias(f"B{row}", name)
+
+    row += 1
+
+  doc.recompute()
+  enum_members = {k: f"{sheet_label}.{k}" for k in params.keys()}
+
+  class StrEnum(str, Enum):
+    pass
+
+  return StrEnum(sheet_label, enum_members)
+
+
+def addExpressionConstraint(sketch, name: str, expr: str, *constraint_args) -> int:
+  args = (name,) + tuple(constraint_args) + (1,)
+  constraint_id = sketch.addConstraint(Sketcher.Constraint(*args))
+  print(f'Constraints[{constraint_id}]: {expr}')
+  sketch.setExpression(f'Constraints[{constraint_id}]', expr)
+  return int(constraint_id)
+
+
+def addRectangle(sketch, x1: float, y1: float, x2: float, y2: float):
+  # Corner points
+  p_tl = App.Vector(x1, y1, 0)
+  p_tr = App.Vector(x2, y1, 0)
+  p_br = App.Vector(x2, y2, 0)
+  p_bl = App.Vector(x1, y2, 0)
+
+  # Edges
+  i1 = sketch.addGeometry(Part.LineSegment(p_tl, p_tr), False)  # top edge
+  i2 = sketch.addGeometry(Part.LineSegment(p_tr, p_br), False)  # right edge
+  i3 = sketch.addGeometry(Part.LineSegment(p_br, p_bl), False)  # bottom edge
+  i4 = sketch.addGeometry(Part.LineSegment(p_bl, p_tl), False)  # left edge
+
+  # Close rectangle: make endpoints coincident
+  # Line segment point indices: 1 = start point, 2 = end point
+  sketch.addConstraint(Sketcher.Constraint('Coincident', i1, 2, i2, 1))
+  sketch.addConstraint(Sketcher.Constraint('Coincident', i2, 2, i3, 1))
+  sketch.addConstraint(Sketcher.Constraint('Coincident', i3, 2, i4, 1))
+  sketch.addConstraint(Sketcher.Constraint('Coincident', i4, 2, i1, 1))
+
+  # Constrain vertical/horizontal edges
+  sketch.addConstraint(Sketcher.Constraint('Horizontal', i1))  # top edge
+  sketch.addConstraint(Sketcher.Constraint('Vertical', i2))    # right edge
+  sketch.addConstraint(Sketcher.Constraint('Horizontal', i3))  # bottom edge
+  sketch.addConstraint(Sketcher.Constraint('Vertical', i4))    # left edge
+
+  return (i1, i2, i3, i4)
