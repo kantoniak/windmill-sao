@@ -39,53 +39,50 @@ sg90.recompute()
 sg90_flange_s = sg90.newObject("Sketcher::SketchObject", "Flange")
 sg90_flange_s.AttachmentSupport = [(doc.getObject("XY_Plane"), "")]
 sg90_flange_s.setExpression('AttachmentOffset.Base.z', Params.SG90_FLANGE_BASE_OFFSET)
+sg90_flange_s.setExpression('AttachmentOffset.Base.y', f'-{Params.SG90_BASE_DEPTH}/2')
 sg90_flange_s.MapMode = 'ObjectXY'
 
-# Flange: outer loop
-(edge_bl, edge_l, edge_t, edge_r, edge_br) = sg90_flange_s.addGeometry([
-    Part.LineSegment(App.Vector(-1, -2, 0), App.Vector(-3, -2, 0)),
-    Part.LineSegment(App.Vector(-3, -2, 0), App.Vector(-3, -1, 0)),
-    Part.LineSegment(App.Vector(-3, -1, 0), App.Vector(3, -1, 0)),
-    Part.LineSegment(App.Vector(3, -1, 0), App.Vector(3, -2, 0)),
-    Part.LineSegment(App.Vector(3, -2, 0), App.Vector(1, -2, 0))
+(fedge_il, fedge_bl, fedge_l, fedge_t, fedge_r, fedge_br, fedge_ir, farc, farc_side) = sg90_flange_s.addGeometry([
+    Part.LineSegment(App.Vector(-1, -9, 0), App.Vector(-1, -10, 0)),
+    Part.LineSegment(App.Vector(-1, -10, 0), App.Vector(-3, -10, 0)),
+    Part.LineSegment(App.Vector(-3, -10, 0), App.Vector(-3, 0, 0)),
+    Part.LineSegment(App.Vector(-3, 0, 0), App.Vector(3, 0, 0)),
+    Part.LineSegment(App.Vector(3, 0, 0), App.Vector(3, -10, 0)),
+    Part.LineSegment(App.Vector(3, -10, 0), App.Vector(1, -10, 0)),
+    Part.LineSegment(App.Vector(1, -10, 0), App.Vector(1, -9, 0)),
+    Part.Arc(App.Vector(1, -9, 0), App.Vector(0, -6, 0), App.Vector(-1, -9, 0)),
+    Part.Point(App.Vector(1, -6, 0)),
   ], False)
 
-sg90_flange_s.addConstraint([
-  Sketcher.Constraint('Vertical', edge_l),
-  Sketcher.Constraint('Vertical', edge_r),
-  Sketcher.Constraint('Horizontal', edge_bl),
-  Sketcher.Constraint('Horizontal', edge_br),
-  Sketcher.Constraint('Symmetric', edge_l, CA.END_POINT, edge_r, CA.START_POINT, AxisId.Y),
-  Sketcher.Constraint('Symmetric', edge_bl, CA.START_POINT, edge_br, CA.END_POINT, AxisId.Y),
-  Sketcher.Constraint('Coincident', edge_bl, CA.END_POINT, edge_l, CA.START_POINT),
-  Sketcher.Constraint('Coincident', edge_l, CA.END_POINT, edge_t, CA.START_POINT),
-  Sketcher.Constraint('Coincident', edge_t, CA.END_POINT, edge_r, CA.START_POINT),
-  Sketcher.Constraint('Coincident', edge_r, CA.END_POINT, edge_br, CA.START_POINT)])
-
-addExpressionConstraint(sg90_flange_s, 'DistanceX', Params.SG90_BASE_WIDTH, edge_t, CA.START_POINT, edge_t, CA.END_POINT)
-addExpressionConstraint(sg90_flange_s, 'DistanceX', Params.SG90_SCREWHOLE_GAP, edge_bl, CA.START_POINT, edge_br, CA.END_POINT)
-addExpressionConstraint(sg90_flange_s, 'DistanceY', f'{Params.SG90_BASE_DEPTH}/2', edge_t, CA.START_POINT, *ORIGIN)
-addExpressionConstraint(sg90_flange_s, 'DistanceY', f'{Params.SG90_BASE_DEPTH}/2 + {Params.SG90_FLANGE_DEPTH}', edge_l, CA.START_POINT, *ORIGIN)
-
-# Flange: inner loop
-(left, right, arc) = sg90_flange_s.addGeometry([
-    Part.LineSegment(App.Vector(-0.5, -16, 0), App.Vector(-0.5, -15.5, 0)),
-    Part.LineSegment(App.Vector(0.5, -16, 0), App.Vector(0.5, -15.5, 0)),
-    Part.Arc(App.Vector(0.5, -15.5, 0), App.Vector(0, -13, 0), App.Vector(-0.5, -15.5, 0))
-  ], False)
-print(left, right, arc)
+addExpressionConstraint(sg90_flange_s, 'DistanceX', Params.SG90_BASE_WIDTH, fedge_t, CA.START_POINT, fedge_t, CA.END_POINT)
+addExpressionConstraint(sg90_flange_s, 'DistanceX', Params.SG90_SCREWHOLE_GAP, fedge_bl, CA.START_POINT, fedge_br, CA.END_POINT)
+addExpressionConstraint(sg90_flange_s, 'DistanceX', Params.SG90_SCREWHOLE_RADIUS, farc_side, CA.START_POINT, *ORIGIN)
+addExpressionConstraint(sg90_flange_s, 'DistanceY', Params.SG90_FLANGE_DEPTH, fedge_l, CA.START_POINT, *ORIGIN)
+addExpressionConstraint(sg90_flange_s, 'DistanceY', f'{Params.SG90_FLANGE_DEPTH} - {Params.SG90_SCREWHOLE_DIST}', farc, CA.CENTER, *ORIGIN)
 
 sg90_flange_s.addConstraint([
-  Sketcher.Constraint('Vertical', left),
-  Sketcher.Constraint('Vertical', right),
-  Sketcher.Constraint('Coincident', left, CA.START_POINT, edge_bl, CA.START_POINT),
-  Sketcher.Constraint('Coincident', right, CA.START_POINT, edge_br, CA.END_POINT),
-  Sketcher.Constraint('Coincident', left, CA.END_POINT, arc, CA.END_POINT),
-  Sketcher.Constraint('Coincident', right, CA.END_POINT, arc, CA.START_POINT),
-  Sketcher.Constraint('PointOnObject', arc, CA.CENTER, AxisId.Y)])
-
-addExpressionConstraint(sg90_flange_s, 'Radius', Params.SG90_SCREWHOLE_RADIUS, arc)
-addExpressionConstraint(sg90_flange_s, 'DistanceY', f'{Params.SG90_BASE_DEPTH}/2 + {Params.SG90_FLANGE_DEPTH} - {Params.SG90_SCREWHOLE_DIST}', arc, CA.CENTER, *ORIGIN)
+  Sketcher.Constraint('Coincident', fedge_il, CA.END_POINT, fedge_bl, CA.START_POINT),
+  Sketcher.Constraint('Coincident', fedge_bl, CA.END_POINT, fedge_l, CA.START_POINT),
+  Sketcher.Constraint('Coincident', fedge_l, CA.END_POINT, fedge_t, CA.START_POINT),
+  Sketcher.Constraint('Coincident', fedge_t, CA.END_POINT, fedge_r, CA.START_POINT),
+  Sketcher.Constraint('Coincident', fedge_r, CA.END_POINT, fedge_br, CA.START_POINT),
+  Sketcher.Constraint('Coincident', fedge_br, CA.END_POINT, fedge_ir, CA.START_POINT),
+  Sketcher.Constraint('Coincident', fedge_ir, CA.END_POINT, farc, CA.START_POINT),
+  Sketcher.Constraint('Coincident', fedge_il, CA.START_POINT, farc, CA.END_POINT),
+  Sketcher.Constraint('PointOnObject', farc_side, CA.START_POINT, farc),
+  Sketcher.Constraint('PointOnObject', farc, CA.CENTER, AxisId.Y),
+  Sketcher.Constraint('Vertical', fedge_l),
+  Sketcher.Constraint('Vertical', fedge_r),
+  Sketcher.Constraint('Vertical', fedge_il),
+  Sketcher.Constraint('Vertical', fedge_ir),
+  Sketcher.Constraint('Horizontal', fedge_bl),
+  Sketcher.Constraint('Horizontal', fedge_t),
+  Sketcher.Constraint('Horizontal', fedge_br),
+  Sketcher.Constraint('Horizontal', farc_side, CA.START_POINT, farc, CA.CENTER),
+  Sketcher.Constraint('Symmetric', fedge_l, CA.END_POINT, fedge_r, CA.START_POINT, *ORIGIN),
+  Sketcher.Constraint('Horizontal', fedge_il, CA.START_POINT, fedge_ir, CA.END_POINT),
+  Sketcher.Constraint('Horizontal', fedge_il, CA.END_POINT, fedge_ir, CA.START_POINT),
+])
 
 # Flange: extrude
 sg90_flange_pad = sg90.newObject('PartDesign::Pad','Flange_Pad')
