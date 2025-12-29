@@ -196,6 +196,7 @@ sg90_tooth_pad.setExpression('Length', f'{Params.SG90_TEETH_HEIGHT}')
 sg90.recompute()
 
 # Tooth: center axis
+# Note to self: FreeCAD 1.1 will move to Part::DatumLine: https://github.com/FreeCAD/FreeCAD/issues/19095
 sg90_tooth_axis = sg90.newObject("PartDesign::Line", "Tooth_Axis")
 sg90_tooth_axis.AttachmentSupport = [(sg90_tooth_s, "")]
 sg90_tooth_axis.MapMode = 'ObjectZ'
