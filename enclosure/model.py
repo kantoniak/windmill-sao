@@ -27,8 +27,11 @@ doc.RecomputesFrozen = True
 
 def createSG90(doc):
   sg90 = doc.addObject("PartDesign::Body", "SG90")
+  xy_plane = sg90.Origin.OriginFeatures[3]
+  xz_plane = sg90.Origin.OriginFeatures[4]
+
   sg90_base_s = sg90.newObject("Sketcher::SketchObject", "Base")
-  sg90_base_s.AttachmentSupport = [(doc.getObject("XY_Plane"), "")]
+  sg90_base_s.AttachmentSupport = xy_plane
   addCenteredRectangle(sg90_base_s, Params.SG90_BASE_WIDTH, Params.SG90_BASE_DEPTH, *ORIGIN)
 
   sg90_base_pad = sg90.newObject('PartDesign::Pad','Base_Pad')
@@ -37,7 +40,7 @@ def createSG90(doc):
 
   # Flange
   sg90_flange_s = sg90.newObject("Sketcher::SketchObject", "Flange")
-  sg90_flange_s.AttachmentSupport = [(doc.getObject("XY_Plane"), "")]
+  sg90_flange_s.AttachmentSupport = xy_plane
   sg90_flange_s.setExpression('AttachmentOffset.Base.z', Params.SG90_FLANGE_BASE_OFFSET)
   sg90_flange_s.setExpression('AttachmentOffset.Base.y', f'-{Params.SG90_BASE_DEPTH}/2')
   sg90_flange_s.MapMode = 'ObjectXY'
@@ -93,11 +96,11 @@ def createSG90(doc):
   # Flange: mirror
   sg90_flange_m = sg90.newObject('PartDesign::Mirrored', 'Flange_Mirror')
   sg90_flange_m.Originals = [sg90_flange_pad]
-  sg90_flange_m.MirrorPlane = (doc.getObject("XZ_Plane"), [''])
+  sg90_flange_m.MirrorPlane = xz_plane
 
   # Bushing
   sg90_bushing_s = sg90.newObject("Sketcher::SketchObject", "Bushing")
-  sg90_bushing_s.AttachmentSupport = [(doc.getObject("XY_Plane"), "")]
+  sg90_bushing_s.AttachmentSupport = xy_plane
   sg90_bushing_s.setExpression('AttachmentOffset.Base.z', Params.SG90_BASE_HEIGHT)
   sg90_bushing_s.MapMode = 'ObjectXY'
 
@@ -150,7 +153,7 @@ def createSG90(doc):
 
   # Tooth
   sg90_tooth_s = sg90.newObject("Sketcher::SketchObject", "Tooth")
-  sg90_tooth_s.AttachmentSupport = [(doc.getObject("XY_Plane"), "")]
+  sg90_tooth_s.AttachmentSupport = xy_plane
   sg90_tooth_s.setExpression('AttachmentOffset.Base.y', f'{Params.SG90_BASE_DEPTH}/2 - {Params.SG90_BASE_WIDTH}/2')
   sg90_tooth_s.setExpression('AttachmentOffset.Base.z', f'{Params.SG90_BASE_HEIGHT} + {Params.SG90_BUSHING_HEIGHT}')
   sg90_tooth_s.MapMode = 'ObjectXY'
@@ -192,7 +195,7 @@ def createSG90(doc):
   # Tooth: center axis
   # Note to self: FreeCAD 1.1 will move to Part::DatumLine: https://github.com/FreeCAD/FreeCAD/issues/19095
   sg90_tooth_axis = sg90.newObject("PartDesign::Line", "Tooth_Axis")
-  sg90_tooth_axis.AttachmentSupport = [(sg90_tooth_s, "")]
+  sg90_tooth_axis.AttachmentSupport = sg90_tooth_s
   sg90_tooth_axis.MapMode = 'ObjectZ'
   sg90_tooth_axis.recompute()
 
