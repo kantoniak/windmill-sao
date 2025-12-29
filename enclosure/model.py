@@ -15,6 +15,9 @@ Params = initParams(doc, {
   'SG90_SCREWHOLE_RADIUS': '1 mm',
   'SG90_SCREWHOLE_GAP': '1.3 mm',
   'SG90_SCREWHOLE_DIST': '2.35 mm',
+  'SG90_GEAR_FROMTOP': '12.8 mm',
+  'SG90_GEAR_RADIUS': '2.5 mm',
+  'SG90_BUSHING_HEIGHT': '4 mm'
 })
 
 # SG90
@@ -84,13 +87,67 @@ addExpressionConstraint(sg90_flange_s, 'DistanceY', f'{Params.SG90_BASE_DEPTH}/2
 sg90_flange_pad = sg90.newObject('PartDesign::Pad','Flange_Pad')
 sg90_flange_pad.Profile = (sg90_flange_s, [''])
 sg90_flange_pad.setExpression('Length', Params.SG90_FLANGE_THICKNESS)
-
 sg90.recompute()
 
 # Flange: mirror
 sg90_flange_m = sg90.newObject('PartDesign::Mirrored', 'Flange_Mirror')
 sg90_flange_m.Originals = [sg90_flange_pad,]
 sg90_flange_m.MirrorPlane = (doc.getObject("XZ_Plane"), [''])
+sg90.recompute()
+
+# Bushing
+sg90_bushing_s = sg90.newObject("Sketcher::SketchObject", "Bushing")
+sg90_bushing_s.AttachmentSupport = [(doc.getObject("XY_Plane"), "")]
+sg90_bushing_s.setExpression('AttachmentOffset.Base.z', Params.SG90_BASE_HEIGHT)
+sg90_bushing_s.MapMode = 'ObjectXY'
+
+(bpoint_t, bpoint_r, bpoint_b) = sg90_bushing_s.addGeometry([
+  Part.Point(App.Vector(0, 1, 0)),
+  Part.Point(App.Vector(1, 0, 0)),
+  Part.Point(App.Vector(0, -1, 0))], False)
+
+addExpressionConstraint(sg90_bushing_s, 'DistanceY', f'{Params.SG90_BASE_DEPTH}/2', bpoint_t, 1)
+addExpressionConstraint(sg90_bushing_s, 'DistanceY', f'{Params.SG90_BASE_DEPTH}/2 - {Params.SG90_GEAR_FROMTOP} - {Params.SG90_GEAR_RADIUS}', bpoint_b, 1)
+addExpressionConstraint(sg90_bushing_s, 'DistanceX', f'{Params.SG90_BASE_WIDTH}/2', bpoint_r, 1)
+addExpressionConstraint(sg90_bushing_s, 'DistanceY', f'{Params.SG90_BASE_DEPTH}/2 - {Params.SG90_BASE_WIDTH}/2', bpoint_r, 1)
+
+sg90_bushing_s.addConstraint([
+  Sketcher.Constraint('PointOnObject', bpoint_t, CA.START_POINT, AxisId.Y),
+  Sketcher.Constraint('PointOnObject', bpoint_b, CA.START_POINT, AxisId.Y),
+])
+sg90_bushing_s.recompute()
+
+(brect_ta, brect_ba, brect_l, brect_r) = sg90_bushing_s.addGeometry([
+  Part.Arc(App.Vector(1, 0, 0), App.Vector(0, 1, 0), App.Vector(-1, 0, 0)),
+  Part.Arc(App.Vector(1, 0, 0), App.Vector(0, -1, 0), App.Vector(-1, 0, 0)),
+  Part.LineSegment(App.Vector(-1, 0, 0), App.Vector(-1, 1, 0)),
+  Part.LineSegment(App.Vector(1, 0, 0), App.Vector(1, 1, 0))], False)
+
+sg90_bushing_s.addConstraint([
+  Sketcher.Constraint('PointOnObject', brect_ta, CA.CENTER, AxisId.Y),
+  Sketcher.Constraint('PointOnObject', brect_ba, CA.CENTER, AxisId.Y),
+  Sketcher.Constraint('Coincident', brect_l, CA.START_POINT, brect_ba, CA.START_POINT),
+  Sketcher.Constraint('Coincident', brect_r, CA.START_POINT, brect_ba, CA.END_POINT),
+  Sketcher.Constraint('Coincident', brect_l, CA.END_POINT, brect_ta, CA.END_POINT),
+  Sketcher.Constraint('Coincident', brect_r, CA.END_POINT, brect_ta, CA.START_POINT),
+  Sketcher.Constraint('PointOnObject', bpoint_t, CA.START_POINT, brect_ta),
+  Sketcher.Constraint('PointOnObject', bpoint_r, CA.START_POINT, brect_ta),
+  Sketcher.Constraint('PointOnObject', bpoint_b, CA.START_POINT, brect_ba),
+  Sketcher.Constraint('Vertical', brect_l),
+  Sketcher.Constraint('Horizontal', brect_ta, CA.START_POINT, brect_ta, CA.END_POINT),
+  Sketcher.Constraint('Horizontal', brect_ba, CA.START_POINT, brect_ba, CA.END_POINT),
+])
+sg90_bushing_s.recompute()
+
+addExpressionConstraint(sg90_bushing_s, 'DistanceX', f'{Params.SG90_GEAR_RADIUS}*2', brect_ta, CA.END_POINT, brect_ta, CA.START_POINT)
+addExpressionConstraint(sg90_bushing_s, 'Radius', Params.SG90_GEAR_RADIUS, brect_ba)
+sg90_bushing_s.recompute()
+
+# Bushing: extrude
+sg90_bushing_pad = sg90.newObject('PartDesign::Pad','Bushing_Pad')
+sg90_bushing_pad.Profile = (sg90_bushing_s, [''])
+sg90_bushing_pad.setExpression('Length', Params.SG90_BUSHING_HEIGHT)
+sg90.recompute()
 
 doc.recompute()
 doc.saveAs("exports/enclosure.FCStd")
