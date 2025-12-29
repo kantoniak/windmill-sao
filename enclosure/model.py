@@ -5,7 +5,6 @@ import Sketcher
 
 doc = App.newDocument("Enclosure")
 Params = initParams(doc, {
-  'CUBE_SIDE': '30',
   'SG90_BASE_HEIGHT': '22.5 mm',
   'SG90_BASE_WIDTH': '12.3 mm',
   'SG90_BASE_DEPTH': '22.8 mm',
@@ -17,7 +16,12 @@ Params = initParams(doc, {
   'SG90_SCREWHOLE_DIST': '2.35 mm',
   'SG90_GEAR_FROMTOP': '12.8 mm',
   'SG90_GEAR_RADIUS': '2.5 mm',
-  'SG90_BUSHING_HEIGHT': '4 mm'
+  'SG90_BUSHING_HEIGHT': '4 mm',
+  'SG90_TOOTH_OUTER': '2.45 mm',
+  'SG90_TOOTH_INNER': '2.3 mm',
+  'SG90_TOOTH_SCREWHOLE': '2 mm',
+  'SG90_TEETH_COUNT': '24',
+  'SG90_TEETH_HEIGHT': '3.2 mm',
 })
 
 # SG90
@@ -140,7 +144,7 @@ sg90_bushing_s.addConstraint([
 sg90_bushing_s.recompute()
 
 addExpressionConstraint(sg90_bushing_s, 'DistanceX', f'{Params.SG90_GEAR_RADIUS}*2', brect_ta, CA.END_POINT, brect_ta, CA.START_POINT)
-addExpressionConstraint(sg90_bushing_s, 'Radius', Params.SG90_GEAR_RADIUS, brect_ba)
+addExpressionConstraint(sg90_bushing_s, 'Radius', f'{Params.SG90_GEAR_RADIUS}', brect_ba)
 sg90_bushing_s.recompute()
 
 # Bushing: extrude
@@ -148,6 +152,65 @@ sg90_bushing_pad = sg90.newObject('PartDesign::Pad','Bushing_Pad')
 sg90_bushing_pad.Profile = (sg90_bushing_s, [''])
 sg90_bushing_pad.setExpression('Length', Params.SG90_BUSHING_HEIGHT)
 sg90.recompute()
+
+# Tooth
+sg90_tooth_s = sg90.newObject("Sketcher::SketchObject", "Tooth")
+sg90_tooth_s.AttachmentSupport = [(doc.getObject("XY_Plane"), "")]
+sg90_tooth_s.setExpression('AttachmentOffset.Base.y', f'{Params.SG90_BASE_DEPTH}/2 - {Params.SG90_BASE_WIDTH}/2')
+sg90_tooth_s.setExpression('AttachmentOffset.Base.z', f'{Params.SG90_BASE_HEIGHT} + {Params.SG90_BUSHING_HEIGHT}')
+sg90_tooth_s.MapMode = 'ObjectXY'
+
+(tooth_e, tooth_t, tooth_tr, tooth_br, tooth_b, tooth_arc) = sg90_tooth_s.addGeometry([
+  Part.Point(App.Vector(1, 0, 0)),
+  Part.LineSegment(App.Vector(0, 1, 0), App.Vector(1, 1, 0)),
+  Part.LineSegment(App.Vector(1, 1, 0), App.Vector(1, 0, 0)),
+  Part.LineSegment(App.Vector(1, 0, 0), App.Vector(1, -1, 0)),
+  Part.LineSegment(App.Vector(1, -1, 0), App.Vector(0, -1, 0)),
+  Part.Arc(App.Vector(0, -1, 0), App.Vector(1, 0, 0), App.Vector(0, 1, 0))], False)
+
+addExpressionConstraint(sg90_tooth_s, 'DistanceX', f'{Params.SG90_TOOTH_OUTER}', tooth_e, 1)
+addExpressionConstraint(sg90_tooth_s, 'Distance', f'{Params.SG90_TOOTH_INNER}', tooth_t, CA.END_POINT, tooth_arc, CA.CENTER)
+addExpressionConstraint(sg90_tooth_s, 'Diameter', f'{Params.SG90_TOOTH_SCREWHOLE}', tooth_arc)
+addExpressionConstraint(sg90_tooth_s, 'Angle', f'360 / {Params.SG90_TEETH_COUNT}', tooth_arc)
+
+sg90_tooth_s.addConstraint([
+  Sketcher.Constraint('PointOnObject', tooth_e, CA.START_POINT, AxisId.X),
+  Sketcher.Constraint('Coincident', tooth_t, CA.END_POINT, tooth_tr, CA.START_POINT),
+  Sketcher.Constraint('Coincident', tooth_tr, CA.END_POINT, tooth_e, CA.START_POINT),
+  Sketcher.Constraint('Coincident', tooth_br, CA.START_POINT, tooth_e, CA.START_POINT),
+  Sketcher.Constraint('Coincident', tooth_br, CA.END_POINT, tooth_b, CA.START_POINT),
+  Sketcher.Constraint('Vertical', tooth_t, CA.END_POINT, tooth_b, CA.START_POINT),
+  Sketcher.Constraint('Vertical', tooth_t, CA.START_POINT, tooth_b, CA.END_POINT),
+  Sketcher.Constraint('Coincident', tooth_arc, CA.START_POINT, tooth_b, CA.END_POINT),
+  Sketcher.Constraint('Coincident', tooth_arc, CA.END_POINT, tooth_t, CA.START_POINT),
+  Sketcher.Constraint('Coincident', tooth_arc, CA.CENTER, *ORIGIN),
+  Sketcher.Constraint('PointOnObject', tooth_arc, CA.CENTER, tooth_t),
+  Sketcher.Constraint('PointOnObject', tooth_arc, CA.CENTER, tooth_b),
+])
+sg90_tooth_s.recompute()
+
+# Tooth: extrude
+sg90_tooth_pad = sg90.newObject('PartDesign::Pad','Tooth_Pad')
+sg90_tooth_pad.Profile = (sg90_tooth_s, [''])
+sg90_tooth_pad.setExpression('Length', f'{Params.SG90_TEETH_HEIGHT}')
+sg90.recompute()
+
+# Tooth: center axis
+sg90_tooth_axis = sg90.newObject("PartDesign::Line", "Tooth_Axis")
+sg90_tooth_axis.AttachmentSupport = [(sg90_tooth_s, "")]
+sg90_tooth_axis.MapMode = 'ObjectZ'
+sg90.recompute()
+
+# Tooth: polar
+sg90_tooth_polar = sg90.newObject('PartDesign::PolarPattern','Tooth_PolarPattern')
+sg90_tooth_polar.Originals = [sg90_tooth_pad,]
+sg90_tooth_polar.Axis = (sg90_tooth_axis, [''])
+sg90_tooth_polar.Angle = 360
+sg90_tooth_polar.setExpression('Occurrences', f'{Params.SG90_TEETH_COUNT}')
+sg90_tooth_polar.Visibility = True
+sg90.recompute()
+
+sg90.Tip = sg90_tooth_polar
 
 doc.recompute()
 doc.saveAs("exports/enclosure.FCStd")
