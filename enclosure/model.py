@@ -2,6 +2,7 @@ from helpers import *
 from helpers import ConstraintAttachment as CA
 import FreeCAD as App
 import Sketcher
+import math
 
 doc = App.newDocument("Enclosure")
 Params = initParams(doc, {
@@ -270,7 +271,7 @@ def createTower(doc):
   binder_tower_bottom_center = tower.newObject("PartDesign::SubShapeBinder", "Binder_Tower_Bottom_Center")
   binder_tower_bottom_center.Support = tower_bottom_center
 
-  # Create tower curve, as seen from side
+  # Create tower curve, as seen from side. Starts at a top side midpoint.
   tower_side_s = tower.newObject("Sketcher::SketchObject", "Tower_Side")
   tower_side_s.AttachmentSupport = tower_top_center
   tower_side_s.MapMode = 'ObjectYZ'
@@ -287,7 +288,8 @@ def createTower(doc):
   #   3. Select the spline again
   #   4. Select "Decrease B-Spline degree"
   # This will add GUI handles for editing.
-  side_spline_control_point_pos = App.Vector(18, -30, 0)
+  TOWER_TOP_TO_SPLINE_CONTROL_POINT = 30
+  side_spline_control_point_pos = App.Vector(18, -TOWER_TOP_TO_SPLINE_CONTROL_POINT, 0)
 
   (side_spline,) = tower_side_s.addGeometry([
     Part.BSplineCurve(
@@ -308,6 +310,42 @@ def createTower(doc):
     Sketcher.Constraint('Horizontal', side_spline, CA.END_POINT, side_bottom_point, CA.START_POINT),
   ])
   tower_side_s.recompute()
+
+  # Create tower curve, as seen from an angle. Starts at the top side endpoint
+  tower_angle_s = tower.newObject("Sketcher::SketchObject", "Tower_Angle")
+  tower_angle_s.AttachmentSupport = tower_top_center
+  tower_angle_s.MapMode = 'ObjectYZ'
+  tower_angle_s.AttachmentOffset.Rotation.Axis = App.Vector(0, 1, 0)
+  tower_angle_s.setExpression('AttachmentOffset.Rotation.Angle', f'180 deg + 22.5 deg')
+
+  extern_side_spline = addExternalGeomIndexed(tower_angle_s, tower_side_s, 'Edge1')
+
+  # FIXME: BSpline control points are not availale in FreeCAD v1.0 (see above).
+  # Project the start point of spline along X axis
+  angle_spline_control_point_pos = App.Vector(
+    (36 / 2) / math.cos(math.pi / 8), # (Params.TOWER_TOP_WIDTH / 2) / cos(360 deg / 16)
+    -TOWER_TOP_TO_SPLINE_CONTROL_POINT,
+    0)
+
+  (angle_spline,) = tower_angle_s.addGeometry([
+    Part.BSplineCurve(
+      [App.Vector(angle_spline_control_point_pos.x, 0, 0), angle_spline_control_point_pos, App.Vector(2, -1, 0)],
+      None, # ?
+      None, # ?
+      False,
+      2, # Degree
+      None, # ?
+      False)
+    ], False)
+
+  addExpressionConstraint(tower_angle_s, 'DistanceX', f"-({Params.TOWER_TOP_WIDTH} / 2) / cos(22.5 deg)", angle_spline, CA.START_POINT, *ORIGIN)
+  addExpressionConstraint(tower_angle_s, 'DistanceX', f"-({Params.TOWER_BOTTOM_WIDTH} / 2) / cos(22.5 deg)", angle_spline, CA.END_POINT, *ORIGIN)
+
+  tower_angle_s.addConstraint([
+    Sketcher.Constraint('PointOnObject', angle_spline, CA.START_POINT, AxisId.X),
+    Sketcher.Constraint("Horizontal", angle_spline, CA.END_POINT, extern_side_spline, CA.END_POINT),
+  ])
+  tower_angle_s.recompute()
 
   tower.recompute()
   return tower
