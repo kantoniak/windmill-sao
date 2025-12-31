@@ -22,9 +22,13 @@ Params = initParams(doc, {
   'SG90_TOOTH_SCREWHOLE': '2 mm',
   'SG90_TEETH_COUNT': '24',
   'SG90_TEETH_HEIGHT': '3.2 mm',
+  'TOTAL_HEIGHT': '80 mm',
   'WINDSHAFT_TILT': '13.75 deg',
   'WINDSHAFT_TO_CAP_BASE_VER': '13.75 mm',
   'WINDSHAFT_TO_CAP_BASE_HOR': '14.4 mm',
+  'WINDSHAFT_TO_CAP_TOP_VER': '15.4 mm',
+  'TOWER_TOP_WIDTH': '36 mm',
+  'TOWER_BOTTOM_WIDTH': '56 mm',
 })
 doc.RecomputesFrozen = True
 
@@ -246,10 +250,69 @@ tower_top_center = doc.addObject("PartDesign::Point", "Tower_Top_Center")
 tower_top_center.MapMode = 'Deactivated'
 tower_top_center.setExpression('Placement.Base', f'vector(0; {Params.WINDSHAFT_TO_CAP_BASE_VER}; -{Params.WINDSHAFT_TO_CAP_BASE_VER})')
 
+# Note to self: FreeCAD 1.1 will move to Part::DatumPoint: https://wiki.freecad.org/PartDesign_Point
+tower_bottom_center = doc.addObject("PartDesign::Point", "Tower_Bottom_Center")
+tower_bottom_center.MapMode = 'Deactivated'
+tower_bottom_center.setExpression('Placement.Base', f'vector(0; {Params.WINDSHAFT_TO_CAP_BASE_VER}; {Params.WINDSHAFT_TO_CAP_TOP_VER}-{Params.TOTAL_HEIGHT})')
+
 # Note to self: FreeCAD 1.1 will move to Part::DatumLine: https://github.com/FreeCAD/FreeCAD/issues/19095
 tower_axis = doc.addObject("PartDesign::Line", "Tower_Axis")
 tower_axis.AttachmentSupport = tower_top_center
 tower_axis.MapMode = 'ObjectZ'
+
+# Tower
+def createTower(doc):
+  tower = doc.addObject("PartDesign::Body", "Tower")
+  xy_plane = tower.Origin.OriginFeatures[3]
+  xz_plane = tower.Origin.OriginFeatures[4]
+  yz_plane = tower.Origin.OriginFeatures[5]
+
+  binder_tower_bottom_center = tower.newObject("PartDesign::SubShapeBinder", "Binder_Tower_Bottom_Center")
+  binder_tower_bottom_center.Support = tower_bottom_center
+
+  # Create tower curve, as seen from side
+  tower_side_s = tower.newObject("Sketcher::SketchObject", "Tower_Side")
+  tower_side_s.AttachmentSupport = tower_top_center
+  tower_side_s.MapMode = 'ObjectYZ'
+  tower_side_s.AttachmentOffset.Rotation.Axis = App.Vector(0, 1, 0)
+  tower_side_s.setExpression('AttachmentOffset.Rotation.Angle', f'180 deg')
+
+  side_bottom_point = addExternalGeomIndexed(tower_side_s, binder_tower_bottom_center, 'Vertex1')
+
+  # FIXME: BSpline created programatically is not editable in the UI and it might be a limitation of FreeCAD v1.0 or
+  # headless mode. Control points can't be constrained either, as this geometry is not exposed at the moment(?). As a
+  # workaround, you can:
+  #   1. Select the spline
+  #   2. Select "Increase B-Spline degree"
+  #   3. Select the spline again
+  #   4. Select "Decrease B-Spline degree"
+  # This will add GUI handles for editing.
+  side_spline_control_point_pos = App.Vector(18, -30, 0)
+
+  (side_spline,) = tower_side_s.addGeometry([
+    Part.BSplineCurve(
+      [App.Vector(1, 0, 0), side_spline_control_point_pos, App.Vector(2, -1, 0)],
+      None, # ?
+      None, # ?
+      False,
+      2, # Degree
+      None, # ?
+      False)
+    ], False)
+
+  addExpressionConstraint(tower_side_s, 'DistanceX', f'{Params.TOWER_TOP_WIDTH}/2', *ORIGIN, side_spline, CA.START_POINT)
+  addExpressionConstraint(tower_side_s, 'DistanceX', f'{Params.TOWER_BOTTOM_WIDTH}/2', *ORIGIN, side_spline, CA.END_POINT)
+
+  tower_side_s.addConstraint([
+    Sketcher.Constraint('PointOnObject', side_spline, CA.START_POINT, AxisId.X),
+    Sketcher.Constraint('Horizontal', side_spline, CA.END_POINT, side_bottom_point, CA.START_POINT),
+  ])
+  tower_side_s.recompute()
+
+  tower.recompute()
+  return tower
+
+tower = createTower(doc)
 
 doc.RecomputesFrozen = False
 doc.recompute()

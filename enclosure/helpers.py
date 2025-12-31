@@ -45,6 +45,12 @@ def initParams(doc, params: dict):
   return StrEnum(sheet_label, enum_members)
 
 
+def addExternalGeomIndexed(sketch, obj, subName: str) -> int:
+  index = int(-3 - len(sketch.ExternalGeometry))
+  sketch.addExternal(obj.Name, subName)
+  return index
+
+
 def addExpressionConstraint(sketch, name: str, expr: str, *constraint_args) -> int:
   args = (name,) + tuple(constraint_args) + (1,)
   constraint_id = sketch.addConstraint(Sketcher.Constraint(*args))
