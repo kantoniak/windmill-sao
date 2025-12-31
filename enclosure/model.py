@@ -23,6 +23,8 @@ Params = initParams(doc, {
   'SG90_TEETH_COUNT': '24',
   'SG90_TEETH_HEIGHT': '3.2 mm',
   'WINDSHAFT_TILT': '13.75 deg',
+  'WINDSHAFT_TO_CAP_BASE_VER': '13.75 mm',
+  'WINDSHAFT_TO_CAP_BASE_HOR': '14.4 mm',
 })
 doc.RecomputesFrozen = True
 
@@ -231,6 +233,23 @@ toOriginAndRotate(servo,
     rotVector = App.Vector(1, 0, 0),
     rotDegreeExpr = f'-90 deg - {Params.WINDSHAFT_TILT}')
 
+# Supporting global geometry
+# Note to self: FreeCAD 1.1 will move to Part::DatumLine: https://github.com/FreeCAD/FreeCAD/issues/19095
+windshaft_axis = doc.addObject("PartDesign::Line", "Windshaft_Axis")
+windshaft_axis.AttachmentSupport = None
+windshaft_axis.MapMode = 'Deactivated'
+windshaft_axis.setExpression('Placement.Rotation.Angle', f'90 deg - {Params.WINDSHAFT_TILT}')
+windshaft_axis.setExpression('Placement.Rotation.Axis', u'vector(1; 0; 0)')
+
+# Note to self: FreeCAD 1.1 will move to Part::DatumPoint: https://wiki.freecad.org/PartDesign_Point
+tower_top_center = doc.addObject("PartDesign::Point", "Tower_Top_Center")
+tower_top_center.MapMode = 'Deactivated'
+tower_top_center.setExpression('Placement.Base', f'vector(0; {Params.WINDSHAFT_TO_CAP_BASE_VER}; -{Params.WINDSHAFT_TO_CAP_BASE_VER})')
+
+# Note to self: FreeCAD 1.1 will move to Part::DatumLine: https://github.com/FreeCAD/FreeCAD/issues/19095
+tower_axis = doc.addObject("PartDesign::Line", "Tower_Axis")
+tower_axis.AttachmentSupport = tower_top_center
+tower_axis.MapMode = 'ObjectZ'
 
 doc.RecomputesFrozen = False
 doc.recompute()
