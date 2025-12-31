@@ -22,6 +22,7 @@ Params = initParams(doc, {
   'SG90_TOOTH_SCREWHOLE': '2 mm',
   'SG90_TEETH_COUNT': '24',
   'SG90_TEETH_HEIGHT': '3.2 mm',
+  'WINDSHAFT_TILT': '13.75 deg',
 })
 doc.RecomputesFrozen = True
 
@@ -210,8 +211,26 @@ def createSG90(doc):
   # FIXME: Why FreeCAD reorders Flange_Mirror to be the last one?
   sg90.Tip = sg90_flange_m
   sg90.recompute()
+  return sg90
 
-createSG90(doc)
+servo = createSG90(doc)
+
+### Position servo
+def toOriginAndRotate(obj, exprX: str | None, exprY: str | None, exprZ: str | None, rotVector, rotDegreeExpr: str | None):
+  base_vec = f'vector(0mm; 0mm; 0mm)'
+  base_vec = f"vector(({exprX or '0mm'}); ({exprY or '0mm'}); ({exprZ or '0mm'}))"
+  rot_val  = f"rotation(vector({rotVector.x}; {rotVector.y}; {rotVector.z}); {rotDegreeExpr or '0 deg'}) * rotation(vector(0; 0; 1), 180 deg) * rotation(vector(0; 1; 0), 180 deg)"
+  center_vec = f"vector(-({exprX or '0mm'}); -({exprY or '0mm'}); -({exprZ or '0mm'}))"
+  full_expr = f"placement({base_vec}; {rot_val}; {center_vec})"
+  obj.setExpression('Placement', full_expr)
+
+toOriginAndRotate(servo,
+    exprX = None,
+    exprY = f'-{Params.SG90_BASE_DEPTH} / 2 + {Params.SG90_BASE_WIDTH} / 2',
+    exprZ = f'-{Params.SG90_BASE_HEIGHT} - {Params.SG90_BUSHING_HEIGHT}',
+    rotVector = App.Vector(1, 0, 0),
+    rotDegreeExpr = f'-90 deg - {Params.WINDSHAFT_TILT}')
+
 
 doc.RecomputesFrozen = False
 doc.recompute()
