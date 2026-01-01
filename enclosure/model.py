@@ -351,7 +351,7 @@ def createTower(doc):
 
   # Create spline clones
   def createRotatedClone(sketch, degrees: float):
-    sketch_clone = Draft.clone(sketch)
+    sketch_clone = Draft.make_clone(sketch)
     sketch.getParentGeoFeatureGroup().addObject(sketch_clone)
 
     sketch_clone.Label = f'{sketch.Name}_{degrees}'
