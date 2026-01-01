@@ -1,8 +1,9 @@
 from helpers import *
 from helpers import ConstraintAttachment as CA
+import math
+import Draft
 import FreeCAD as App
 import Sketcher
-import math
 
 doc = App.newDocument("Enclosure")
 Params = initParams(doc, {
@@ -346,6 +347,25 @@ def createTower(doc):
     Sketcher.Constraint("Horizontal", angle_spline, CA.END_POINT, extern_side_spline, CA.END_POINT),
   ])
   tower_angle_s.recompute()
+
+  def createRotatedClone(sketch, degrees: float):
+    sketch_clone = Draft.clone(sketch)
+    sketch_clone.Label = f'{sketch.Name}_{degrees}'
+    sketch_clone.AttachmentSupport = tower_top_center
+    sketch_clone.MapMode = 'ObjectYZ'
+    sketch_clone.AttachmentOffset.Rotation.Axis = App.Vector(0, 1, 0)
+    sketch_clone.setExpression('AttachmentOffset.Rotation.Angle', f'{degrees} deg')
+    return sketch_clone
+
+  tower_side_right_s = createRotatedClone(tower_side_s, 180 + 90)
+  # TODO: Attach in the right place (Placement.X is positive)
+
+  tower_side_left_s = createRotatedClone(tower_side_s, 180 - 90)
+  # TODO: Attach in the right place
+
+  tower_angle_247_5_s = createRotatedClone(tower_angle_s, 180 + 22.5 + 45)
+  tower_angle_247_5_s2 = createRotatedClone(tower_angle_s, 180 - 22.5)
+  tower_angle_247_5_s3 = createRotatedClone(tower_angle_s, 180 - 22.5 - 45)
 
   tower.recompute()
   return tower
