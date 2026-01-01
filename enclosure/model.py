@@ -1,5 +1,6 @@
 from helpers import *
 from helpers import ConstraintAttachment as CA
+from itertools import pairwise
 import math
 import Draft
 import FreeCAD as App
@@ -369,6 +370,22 @@ def createTower(doc):
   tower_angle_247_5_s = createRotatedClone(tower_angle_s, 180 + 22.5 + 45)
   tower_angle_157_5_s = createRotatedClone(tower_angle_s, 180 - 22.5)
   tower_angle_112_5_s = createRotatedClone(tower_angle_s, 180 - 22.5 - 45)
+
+  # Build vertical surfaces
+  def toSurface(sketch_a, sketch_b):
+    surface = doc.addObject("Surface::GeomFillSurface", "Surface")
+    surface.BoundaryList = [(sketch_a, "Edge1"), (sketch_b, "Edge1")]
+    return surface
+
+  surface_sketches = [
+    tower_side_right_s,
+    tower_angle_247_5_s,
+    tower_angle_s,
+    tower_angle_157_5_s,
+    tower_angle_112_5_s,
+    tower_side_left_s
+  ]
+  surfaces = [toSurface(a, b) for a, b in pairwise(surface_sketches)]
 
   tower.recompute()
   return tower
