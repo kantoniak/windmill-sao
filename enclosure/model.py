@@ -348,8 +348,11 @@ def createTower(doc):
   ])
   tower_angle_s.recompute()
 
+  # Create spline clones
   def createRotatedClone(sketch, degrees: float):
     sketch_clone = Draft.clone(sketch)
+    sketch.getParentGeoFeatureGroup().addObject(sketch_clone)
+
     sketch_clone.Label = f'{sketch.Name}_{degrees}'
     sketch_clone.AttachmentSupport = tower_top_center
     sketch_clone.MapMode = 'ObjectYZ'
@@ -364,8 +367,8 @@ def createTower(doc):
   # TODO: Attach in the right place
 
   tower_angle_247_5_s = createRotatedClone(tower_angle_s, 180 + 22.5 + 45)
-  tower_angle_247_5_s2 = createRotatedClone(tower_angle_s, 180 - 22.5)
-  tower_angle_247_5_s3 = createRotatedClone(tower_angle_s, 180 - 22.5 - 45)
+  tower_angle_157_5_s = createRotatedClone(tower_angle_s, 180 - 22.5)
+  tower_angle_112_5_s = createRotatedClone(tower_angle_s, 180 - 22.5 - 45)
 
   tower.recompute()
   return tower
