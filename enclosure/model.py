@@ -265,16 +265,16 @@ tower_axis.MapMode = 'ObjectZ'
 
 # Tower
 def createTower(doc):
-  tower = doc.addObject("PartDesign::Body", "Tower")
-  xy_plane = tower.Origin.OriginFeatures[3]
-  xz_plane = tower.Origin.OriginFeatures[4]
-  yz_plane = tower.Origin.OriginFeatures[5]
+  tower_sketches = doc.addObject("PartDesign::Body", "Tower_Sketches")
+  xy_plane = tower_sketches.Origin.OriginFeatures[3]
+  xz_plane = tower_sketches.Origin.OriginFeatures[4]
+  yz_plane = tower_sketches.Origin.OriginFeatures[5]
 
-  binder_tower_bottom_center = tower.newObject("PartDesign::SubShapeBinder", "Binder_Tower_Bottom_Center")
+  binder_tower_bottom_center = tower_sketches.newObject("PartDesign::SubShapeBinder", "Binder_Tower_Bottom_Center")
   binder_tower_bottom_center.Support = tower_bottom_center
 
   def createBaseXYTowerSketch(name: str, attachmentSupport, verticalDistanceExpr: str):
-    sketch = tower.newObject("Sketcher::SketchObject", name)
+    sketch = tower_sketches.newObject("Sketcher::SketchObject", name)
     sketch.AttachmentSupport = attachmentSupport
     sketch.MapMode = 'ObjectXY'
 
@@ -326,7 +326,7 @@ def createTower(doc):
   tower_bottom_s.recompute()
 
   # Create tower curve, as seen from side. Starts at a top side midpoint.
-  tower_side_s = tower.newObject("Sketcher::SketchObject", "Tower_Side")
+  tower_side_s = tower_sketches.newObject("Sketcher::SketchObject", "Tower_Side")
   tower_side_s.AttachmentSupport = tower_top_center
   tower_side_s.MapMode = 'ObjectYZ'
   tower_side_s.AttachmentOffset.Rotation.Axis = App.Vector(0, 1, 0)
@@ -366,7 +366,7 @@ def createTower(doc):
   tower_side_s.recompute()
 
   # Create tower curve, as seen from an angle. Starts at the top side endpoint
-  tower_angle_s = tower.newObject("Sketcher::SketchObject", "Tower_Angle")
+  tower_angle_s = tower_sketches.newObject("Sketcher::SketchObject", "Tower_Angle")
   tower_angle_s.AttachmentSupport = tower_top_center
   tower_angle_s.MapMode = 'ObjectYZ'
   tower_angle_s.AttachmentOffset.Rotation.Axis = App.Vector(0, 1, 0)
@@ -430,6 +430,8 @@ def createTower(doc):
   tower_angle_157_5_s = createRotatedClone(tower_angle_s, 180 - 22.5)
   tower_angle_112_5_s = createRotatedClone(tower_angle_s, 180 - 22.5 - 45)
 
+  tower_sketches.recompute()
+
   # Build vertical surfaces
   def toSurface(sketch_a, sketch_b):
     surface = doc.addObject("Surface::GeomFillSurface", "Surface")
@@ -471,8 +473,19 @@ def createTower(doc):
   solid_obj = doc.addObject("Part::Feature", "Tower_Solid")
   solid_obj.Shape = Part.makeSolid(Part.makeShell([s.Shape.Faces[0] for s in surfaces]))
 
-  tower.recompute()
-  return tower
+  # Create tower base (not source accurate, just for visual finish at the bottom)
+  tower_base = doc.addObject("PartDesign::Body", "Tower_Base")
+
+  binder_tower_bottom_s = tower_base.newObject("PartDesign::ShapeBinder", f"Binder_{tower_bottom_s.Label}")
+  binder_tower_bottom_s.Support = tower_bottom_s
+
+  tower_base_pad = tower_base.newObject("PartDesign::Pad", "Tower_Base_Pad")
+  tower_base_pad.Profile = binder_tower_bottom_s
+  tower_base_pad.Length = 4
+
+  tower_fuse = doc.addObject("Part::MultiFuse", "Tower_Fuse")
+  tower_fuse.Shapes = [solid_obj, tower_base]
+  return tower_fuse
 
 tower = createTower(doc)
 
