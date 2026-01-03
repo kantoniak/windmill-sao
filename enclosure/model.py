@@ -442,9 +442,34 @@ def createTower(doc):
     tower_angle_s,
     tower_angle_157_5_s,
     tower_angle_112_5_s,
-    tower_side_left_s
+    tower_side_left_s,
+    tower_side_right_s, # Add first face again to add back surface
   ]
   surfaces = [toSurface(a, b) for a, b in pairwise(surface_sketches)]
+
+  def toSurfaceFromSketchEdges(sketch):
+    sketch.recompute()
+    edge_count = len(sketch.Shape.Edges)
+    surface = doc.addObject("Surface::Filling", "Surface")
+    surface.BoundaryEdges = [(sketch, f"Edge{i}") for i in range(1, edge_count+1)]
+    return surface
+
+  surfaces.append(toSurfaceFromSketchEdges(tower_top_s))
+  surfaces.append(toSurfaceFromSketchEdges(tower_bottom_s))
+
+  tower_surfaces = doc.addObject("App::DocumentObjectGroup", "Tower_Surfaces")
+  tower_surfaces.Group = surfaces
+
+  # Create tower solid
+
+  # FIXME: Surfaces don't have Faces if the doc is not recomputed. It looks like surfaces from a single sketch can
+  # actually recompute themselved. How to skip this recompute?
+  doc.RecomputesFrozen = False
+  doc.recompute()
+  doc.RecomputesFrozen = True
+
+  solid_obj = doc.addObject("Part::Feature", "Tower_Solid")
+  solid_obj.Shape = Part.makeSolid(Part.makeShell([s.Shape.Faces[0] for s in surfaces]))
 
   tower.recompute()
   return tower
