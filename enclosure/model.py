@@ -265,15 +265,12 @@ tower_axis.MapMode = 'ObjectZ'
 
 # Tower
 def createTower(doc):
-  tower_sketches = doc.addObject("PartDesign::Body", "Tower_Sketches")
-  xy_plane = tower_sketches.Origin.OriginFeatures[3]
-  xz_plane = tower_sketches.Origin.OriginFeatures[4]
-  yz_plane = tower_sketches.Origin.OriginFeatures[5]
+  tower_sketches = doc.addObject("App::DocumentObjectGroup", "Tower_Sketches")
 
   binder_tower_bottom_center = tower_sketches.newObject("PartDesign::SubShapeBinder", "Binder_Tower_Bottom_Center")
   binder_tower_bottom_center.Support = tower_bottom_center
 
-  def createBaseXYTowerSketch(name: str, attachmentSupport, verticalDistanceExpr: str):
+  def createBaseXYTowerSketch(name, attachmentSupport, verticalDistanceExpr):
     sketch = tower_sketches.newObject("Sketcher::SketchObject", name)
     sketch.AttachmentSupport = attachmentSupport
     sketch.MapMode = 'ObjectXY'
@@ -281,9 +278,7 @@ def createTower(doc):
     (top_circle, top_lines) = addOctagon(sketch)
     top_line_back = sketch.addGeometry(Part.LineSegment(App.Vector(-2, 1), App.Vector(2, 1)))
 
-    sketch.addConstraint([
-      Sketcher.Constraint('Coincident', top_circle, CA.CENTER, *ORIGIN),
-    ])
+    sketch.addConstraint(Sketcher.Constraint('Coincident', top_circle, CA.CENTER, *ORIGIN))
 
     sketch.toggleConstruction(top_lines[5])
     sketch.toggleConstruction(top_lines[6])
@@ -305,10 +300,10 @@ def createTower(doc):
   tower_bottom_s.toggleConstruction(tower_bottom_s_lines[0])
   tower_bottom_s.toggleConstruction(tower_bottom_s_lines[4])
 
-  tower_bottom_s_lines = tower_bottom_s_lines + list(tower_bottom_s.addGeometry([
-      Part.LineSegment(App.Vector(-2, -1), App.Vector(-2, 1)),
-      Part.LineSegment(App.Vector(2, -1), App.Vector(2, 1)),
-    ]))
+  tower_bottom_s_lines += list(tower_bottom_s.addGeometry([
+    Part.LineSegment(App.Vector(-2, -1), App.Vector(-2, 1)),
+    Part.LineSegment(App.Vector(2, -1), App.Vector(2, 1)),
+  ]))
 
   extern_top_backpoint = addExternalGeomIndexed(tower_bottom_s, tower_top_s, 'Vertex1')
 
@@ -330,7 +325,7 @@ def createTower(doc):
   tower_side_s.AttachmentSupport = tower_top_center
   tower_side_s.MapMode = 'ObjectYZ'
   tower_side_s.AttachmentOffset.Rotation.Axis = App.Vector(0, 1, 0)
-  tower_side_s.setExpression('AttachmentOffset.Rotation.Angle', f'180 deg')
+  tower_side_s.setExpression('AttachmentOffset.Rotation.Angle', '180 deg')
 
   side_bottom_point = addExternalGeomIndexed(tower_side_s, binder_tower_bottom_center, 'Vertex1')
 
@@ -397,15 +392,13 @@ def createTower(doc):
 
   tower_angle_s.addConstraint([
     Sketcher.Constraint('PointOnObject', angle_spline, CA.START_POINT, AxisId.X),
-    Sketcher.Constraint("Horizontal", angle_spline, CA.END_POINT, extern_side_spline, CA.END_POINT),
+    Sketcher.Constraint('Horizontal', angle_spline, CA.END_POINT, extern_side_spline, CA.END_POINT),
   ])
   tower_angle_s.recompute()
 
   # Create spline clones
-  def createRotatedClone(sketch, degrees: float):
-    sketch_clone = Draft.make_clone(sketch)
-    sketch.getParentGeoFeatureGroup().addObject(sketch_clone)
-
+  def createRotatedClone(sketch, degrees):
+    (sketch_clone,) = tower_sketches.addObject(Draft.make_clone(sketch))
     sketch_clone.Label = f'{sketch.Name}_{degrees}'
     sketch_clone.AttachmentSupport = tower_top_center
     sketch_clone.MapMode = 'ObjectYZ'
@@ -433,8 +426,10 @@ def createTower(doc):
   tower_sketches.recompute()
 
   # Build vertical surfaces
+  tower_surfaces = doc.addObject("App::DocumentObjectGroup", "Tower_Surfaces")
+
   def toSurface(sketch_a, sketch_b):
-    surface = doc.addObject("Surface::GeomFillSurface", "Surface")
+    surface = tower_surfaces.newObject("Surface::GeomFillSurface", "Surface")
     surface.BoundaryList = [(sketch_a, "Edge1"), (sketch_b, "Edge1")]
     return surface
 
@@ -452,15 +447,12 @@ def createTower(doc):
   def toSurfaceFromSketchEdges(sketch):
     sketch.recompute()
     edge_count = len(sketch.Shape.Edges)
-    surface = doc.addObject("Surface::Filling", "Surface")
+    surface = tower_surfaces.newObject("Surface::Filling", "Surface")
     surface.BoundaryEdges = [(sketch, f"Edge{i}") for i in range(1, edge_count+1)]
     return surface
 
   surfaces.append(toSurfaceFromSketchEdges(tower_top_s))
   surfaces.append(toSurfaceFromSketchEdges(tower_bottom_s))
-
-  tower_surfaces = doc.addObject("App::DocumentObjectGroup", "Tower_Surfaces")
-  tower_surfaces.Group = surfaces
 
   # Create tower solid
 
