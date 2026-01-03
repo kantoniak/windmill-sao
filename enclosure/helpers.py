@@ -1,4 +1,5 @@
 from enum import Enum
+from itertools import pairwise
 import FreeCAD as App
 import Part
 import Sketcher
@@ -94,3 +95,31 @@ def addCenteredRectangle(sketch, width_expr, height_expr, around_obj, around_att
   addExpressionConstraint(sketch, 'DistanceX', width_expr, left, ConstraintAttachment.START_POINT, right, ConstraintAttachment.END_POINT)
   addExpressionConstraint(sketch, 'DistanceY', height_expr, bottom, ConstraintAttachment.START_POINT, top, ConstraintAttachment.END_POINT)
   return (top, right, bottom, left)
+
+
+def addOctagon(sketch):
+  circle = sketch.addGeometry(Part.Circle(App.Vector(0, 0, 0), App.Vector(0, 0, 1.000000), 1))
+  sketch.toggleConstruction(circle)
+
+  points = [
+    App.Vector(-2, 1),
+    App.Vector(-2, -1),
+    App.Vector(-1, -2),
+    App.Vector(1, -2),
+    App.Vector(2, -1),
+    App.Vector(2, 1),
+    App.Vector(1, 2),
+    App.Vector(-1, 2),
+  ]
+
+  lines = sketch.addGeometry(
+    [Part.LineSegment(a, b) for a, b in pairwise(points)] + [Part.LineSegment(points[-1], points[0])],
+    False)
+
+  sketch.addConstraint(
+    [Sketcher.Constraint('Coincident', a, ConstraintAttachment.END_POINT, b, ConstraintAttachment.START_POINT) for a, b in pairwise(lines)] +
+    [Sketcher.Constraint('Coincident', lines[-1], ConstraintAttachment.END_POINT, lines[0], ConstraintAttachment.START_POINT)] +
+    [Sketcher.Constraint('PointOnObject', l, ConstraintAttachment.START_POINT, circle) for l in lines] +
+    [Sketcher.Constraint('Equal', lines[0], l) for l in lines[1:]])
+
+  return circle, lines

@@ -273,6 +273,58 @@ def createTower(doc):
   binder_tower_bottom_center = tower.newObject("PartDesign::SubShapeBinder", "Binder_Tower_Bottom_Center")
   binder_tower_bottom_center.Support = tower_bottom_center
 
+  def createBaseXYTowerSketch(name: str, attachmentSupport, verticalDistanceExpr: str):
+    sketch = tower.newObject("Sketcher::SketchObject", name)
+    sketch.AttachmentSupport = attachmentSupport
+    sketch.MapMode = 'ObjectXY'
+
+    (top_circle, top_lines) = addOctagon(sketch)
+    top_line_back = sketch.addGeometry(Part.LineSegment(App.Vector(-2, 1), App.Vector(2, 1)))
+
+    sketch.addConstraint([
+      Sketcher.Constraint('Coincident', top_circle, CA.CENTER, *ORIGIN),
+    ])
+
+    sketch.toggleConstruction(top_lines[5])
+    sketch.toggleConstruction(top_lines[6])
+    sketch.toggleConstruction(top_lines[7])
+
+    addExpressionConstraint(sketch, 'DistanceY', verticalDistanceExpr, top_lines[2], CA.START_POINT, *ORIGIN)
+    return sketch, list(top_lines) + [top_line_back]
+
+  # Create top view sketch
+  (tower_top_s, tower_top_s_lines) = createBaseXYTowerSketch("Tower_Top", tower_top_center, f'{Params.TOWER_TOP_WIDTH}/2')
+  tower_top_s.addConstraint([
+    Sketcher.Constraint('Horizontal', tower_top_s_lines[-1]),
+    Sketcher.Constraint('Coincident', tower_top_s_lines[-1], CA.START_POINT, tower_top_s_lines[0], CA.START_POINT),
+    Sketcher.Constraint('Coincident', tower_top_s_lines[-1], CA.END_POINT, tower_top_s_lines[4], CA.END_POINT),
+  ])
+  tower_top_s.recompute()
+
+  (tower_bottom_s, tower_bottom_s_lines) = createBaseXYTowerSketch("Tower_Bottom", tower_bottom_center, f'{Params.TOWER_BOTTOM_WIDTH}/2')
+  tower_bottom_s.toggleConstruction(tower_bottom_s_lines[0])
+  tower_bottom_s.toggleConstruction(tower_bottom_s_lines[4])
+
+  tower_bottom_s_lines = tower_bottom_s_lines + list(tower_bottom_s.addGeometry([
+      Part.LineSegment(App.Vector(-2, -1), App.Vector(-2, 1)),
+      Part.LineSegment(App.Vector(2, -1), App.Vector(2, 1)),
+    ]))
+
+  extern_top_backpoint = addExternalGeomIndexed(tower_bottom_s, tower_top_s, 'Vertex1')
+
+  tower_bottom_s.addConstraint([
+    Sketcher.Constraint('Horizontal', tower_bottom_s_lines[-3]),
+    Sketcher.Constraint('Vertical', tower_bottom_s_lines[-2]),
+    Sketcher.Constraint('Vertical', tower_bottom_s_lines[-1]),
+    Sketcher.Constraint('PointOnObject', tower_bottom_s_lines[-3], CA.START_POINT, tower_bottom_s_lines[0]),
+    Sketcher.Constraint('Horizontal', tower_bottom_s_lines[-3], CA.START_POINT, extern_top_backpoint, CA.START_POINT),
+    Sketcher.Constraint('Coincident', tower_bottom_s_lines[-2], CA.START_POINT, tower_bottom_s_lines[0], CA.END_POINT),
+    Sketcher.Constraint('Coincident', tower_bottom_s_lines[-1], CA.START_POINT, tower_bottom_s_lines[4], CA.START_POINT),
+    Sketcher.Constraint('Coincident', tower_bottom_s_lines[-3], CA.START_POINT, tower_bottom_s_lines[-2], CA.END_POINT),
+    Sketcher.Constraint('Coincident', tower_bottom_s_lines[-3], CA.END_POINT, tower_bottom_s_lines[-1], CA.END_POINT),
+  ])
+  tower_bottom_s.recompute()
+
   # Create tower curve, as seen from side. Starts at a top side midpoint.
   tower_side_s = tower.newObject("Sketcher::SketchObject", "Tower_Side")
   tower_side_s.AttachmentSupport = tower_top_center
