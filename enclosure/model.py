@@ -413,11 +413,18 @@ def createTower(doc):
     sketch_clone.setExpression('AttachmentOffset.Rotation.Angle', f'{degrees} deg')
     return sketch_clone
 
+  # FIXME: Why I can't attach the side edges to the features of the top sketch? It seems that the code below works:
+  #   tower_side_left_s.AttachmentSupport = [(tower_top_s, 'Vertex1'), (tower_top_s, 'Edge6')]
+  #   tower_side_left_s.MapMode = 'OZY'
+  # It results in a warning though:
+  #   PositionBySupport: AttachEngine3D::calculateAttachedPlacement: need either a conic section edge, or a whole
+  #   object for ObjectXY-like modes.
+
   tower_side_right_s = createRotatedClone(tower_side_s, 180 + 90)
-  # TODO: Attach in the right place (Placement.X is positive)
+  tower_side_right_s.setExpression('AttachmentOffset.Base.x', f'{Params.TOWER_TOP_WIDTH}/2 * tan(22.5 deg)')
 
   tower_side_left_s = createRotatedClone(tower_side_s, 180 - 90)
-  # TODO: Attach in the right place
+  tower_side_left_s.setExpression('AttachmentOffset.Base.x', f'{Params.TOWER_TOP_WIDTH}/2 * tan(22.5 deg)')
 
   tower_angle_247_5_s = createRotatedClone(tower_angle_s, 180 + 22.5 + 45)
   tower_angle_157_5_s = createRotatedClone(tower_angle_s, 180 - 22.5)
