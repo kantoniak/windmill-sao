@@ -254,6 +254,11 @@ tower_top_center.MapMode = 'Deactivated'
 tower_top_center.setExpression('Placement.Base', f'vector(0; {Params.WINDSHAFT_TO_CAP_BASE_VER}; -{Params.WINDSHAFT_TO_CAP_BASE_VER})')
 
 # Note to self: FreeCAD 1.1 will move to Part::DatumPoint: https://wiki.freecad.org/PartDesign_Point
+tower_top_back = doc.addObject("PartDesign::Point", "Tower_Top_Back")
+tower_top_back.MapMode = 'Deactivated'
+tower_top_back.setExpression('Placement.Base', f'vector(0; {Params.WINDSHAFT_TO_CAP_BASE_VER} + ({Params.TOWER_TOP_WIDTH}/2 * tan(22.5 deg)); -{Params.WINDSHAFT_TO_CAP_BASE_VER})')
+
+# Note to self: FreeCAD 1.1 will move to Part::DatumPoint: https://wiki.freecad.org/PartDesign_Point
 tower_bottom_center = doc.addObject("PartDesign::Point", "Tower_Bottom_Center")
 tower_bottom_center.MapMode = 'Deactivated'
 tower_bottom_center.setExpression('Placement.Base', f'vector(0; {Params.WINDSHAFT_TO_CAP_BASE_VER}; {Params.WINDSHAFT_TO_CAP_TOP_VER}-{Params.TOTAL_HEIGHT})')
@@ -414,10 +419,10 @@ def createTower(doc):
   #   object for ObjectXY-like modes.
 
   tower_side_right_s = createRotatedClone(tower_side_s, 180 + 90)
-  tower_side_right_s.setExpression('AttachmentOffset.Base.x', f'{Params.TOWER_TOP_WIDTH}/2 * tan(22.5 deg)')
+  tower_side_right_s.AttachmentSupport = tower_top_back
 
   tower_side_left_s = createRotatedClone(tower_side_s, 180 - 90)
-  tower_side_left_s.setExpression('AttachmentOffset.Base.x', f'{Params.TOWER_TOP_WIDTH}/2 * tan(22.5 deg)')
+  tower_side_left_s.AttachmentSupport = tower_top_back
 
   tower_angle_247_5_s = createRotatedClone(tower_angle_s, 180 + 22.5 + 45)
   tower_angle_157_5_s = createRotatedClone(tower_angle_s, 180 - 22.5)
