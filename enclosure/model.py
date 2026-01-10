@@ -292,7 +292,7 @@ def createTower(doc):
     addExpressionConstraint(sketch, 'DistanceY', verticalDistanceExpr, top_lines[2], CA.START_POINT, *ORIGIN)
     return sketch, list(top_lines) + [top_line_back]
 
-  # Create top view sketch
+  # Create top and bottom view sketches
   (tower_top_s, tower_top_s_lines) = createBaseXYTowerSketch("Tower_Top", tower_top_center, f'{Params.TOWER_TOP_WIDTH}/2')
   tower_top_s.addConstraint([
     Sketcher.Constraint('Horizontal', tower_top_s_lines[-1]),
@@ -382,15 +382,7 @@ def createTower(doc):
     0)
 
   (angle_spline,) = tower_angle_s.addGeometry([
-    Part.BSplineCurve(
-      [App.Vector(angle_spline_control_point_pos.x, 0, 0), angle_spline_control_point_pos, App.Vector(2, -1, 0)],
-      None, # ?
-      None, # ?
-      False,
-      2, # Degree
-      None, # ?
-      False)
-    ], False)
+    Part.BSplineCurve([App.Vector(angle_spline_control_point_pos.x, 0, 0), angle_spline_control_point_pos, App.Vector(2, -1, 0)])], False)
 
   addExpressionConstraint(tower_angle_s, 'DistanceX', f"-({Params.TOWER_TOP_WIDTH} / 2) / cos(22.5 deg)", angle_spline, CA.START_POINT, *ORIGIN)
   addExpressionConstraint(tower_angle_s, 'DistanceX', f"-({Params.TOWER_BOTTOM_WIDTH} / 2) / cos(22.5 deg)", angle_spline, CA.END_POINT, *ORIGIN)
@@ -410,13 +402,6 @@ def createTower(doc):
     sketch_clone.AttachmentOffset.Rotation.Axis = App.Vector(0, 1, 0)
     sketch_clone.setExpression('AttachmentOffset.Rotation.Angle', f'{degrees} deg')
     return sketch_clone
-
-  # FIXME: Why I can't attach the side edges to the features of the top sketch? It seems that the code below works:
-  #   tower_side_left_s.AttachmentSupport = [(tower_top_s, 'Vertex1'), (tower_top_s, 'Edge6')]
-  #   tower_side_left_s.MapMode = 'OZY'
-  # It results in a warning though:
-  #   PositionBySupport: AttachEngine3D::calculateAttachedPlacement: need either a conic section edge, or a whole
-  #   object for ObjectXY-like modes.
 
   tower_side_right_s = createRotatedClone(tower_side_s, 180 + 90)
   tower_side_right_s.AttachmentSupport = tower_top_back
