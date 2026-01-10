@@ -516,7 +516,22 @@ def createTower(doc):
 
   tower_fuse = doc.addObject("Part::MultiFuse", "Tower_Fuse")
   tower_fuse.Shapes = [solid_obj, tower_base]
-  return tower_fuse
+
+  # Cut the towers backside
+  tower_back_offset = doc.addObject("Part::Offset2D", "Tower_Back_Offset")
+  tower_back_offset.Source = tower_back_s
+  tower_back_offset.setExpression("Value", f'-({Params.OUTER_WALL_THICKNESS}) + {Params.PLA_EXPANSION}')
+
+  tower_back_offset_pad = doc.addObject("PartDesign::Pad", "Tower_Back_Offset_Pad")
+  tower_back_offset_pad.Profile = tower_back_offset
+  tower_back_offset_pad.Reversed = True
+  tower_back_offset_pad.setExpression('Length', f'{Params.PCB_THICKNESS} + {Params.PLA_EXPANSION}')
+
+  tower_back_cut = doc.addObject("Part::Cut", "Tower_Back_Cut")
+  tower_back_cut.Base = tower_fuse
+  tower_back_cut.Tool = tower_back_offset_pad
+
+  return tower_back_cut
 
 tower = createTower(doc)
 
