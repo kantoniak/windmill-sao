@@ -34,6 +34,9 @@ Params = initParams(doc, {
   'WINDSHAFT_TO_CAP_TOP_VER': '15.4 mm',
   'TOWER_TOP_WIDTH': '36 mm',
   'TOWER_BOTTOM_WIDTH': '56 mm',
+  'PCB_THICKNESS': '1.6 mm',
+  'PCB_OUTLINE_TOLERANCE': '0.2 mm',
+  'PCB_SERVO_CLEARANCE': '1 mm',
 })
 doc.RecomputesFrozen = True
 
@@ -530,6 +533,91 @@ def createTower(doc):
   tower_back_cut = doc.addObject("Part::Cut", "Tower_Back_Cut")
   tower_back_cut.Base = tower_fuse
   tower_back_cut.Tool = tower_back_offset_pad
+
+  # Sketch the servo access tunnel
+  tower_tunnelb_s = tower_sketches.newObject("Sketcher::SketchObject", "Tower_Tunnel_Backwards")
+  tower_tunnelb_s.AttachmentSupport = windshaft_axis
+  tower_tunnelb_s.MapMode = 'ObjectXY'
+  tower_tunnelb_s.setExpression('AttachmentOffset.Base.y', f'-{Params.SG90_BASE_HEIGHT}/2 + ({Params.SG90_BASE_WIDTH}/2)')
+  tower_tunnelb_s.setExpression('AttachmentOffset.Base.z',
+    f'-{Params.SG90_BUSHING_HEIGHT} - {Params.SG90_BASE_HEIGHT} + {Params.SG90_FLANGE_BASE_OFFSET} ' +
+    f'+ {Params.SG90_FLANGE_THICKNESS} + {Params.PLA_EXPANSION}')
+
+  addCenteredRectangle(tower_tunnelb_s,
+    f'{Params.SG90_BASE_WIDTH} + {Params.PLA_EXPANSION}',
+    f'{Params.SG90_BASE_DEPTH} + 2*{Params.SG90_FLANGE_DEPTH} + {Params.PLA_EXPANSION}',
+    *ORIGIN)
+  tower_tunnelb_s.recompute()
+
+  # Create PCB object
+  pcb_offset = doc.addObject("Part::Offset2D", "PCB_Offset")
+  pcb_offset.Source = tower_back_s
+  pcb_offset.setExpression("Value", f'-({Params.OUTER_WALL_THICKNESS} + {Params.PCB_OUTLINE_TOLERANCE})')
+
+  pcb_base = doc.addObject("PartDesign::Body", "PCB_Base")
+  binder_pcb_offset = pcb_base.newObject("PartDesign::ShapeBinder", f"Binder_{pcb_offset.Label}")
+  binder_pcb_offset.Support = pcb_offset
+
+  pcb_pad = pcb_base.newObject("PartDesign::Pad", "PCB_Pad")
+  pcb_pad.Profile = binder_pcb_offset
+  pcb_pad.Reversed = True
+  pcb_pad.setExpression('Length', f'{Params.PCB_THICKNESS}')
+
+  binder_pcb_tunnel_container = pcb_base.newObject("PartDesign::ShapeBinder", f"Binder_{tower_tunnelb_s.Name}")
+  binder_pcb_tunnel_container.Support = tower_tunnelb_s
+
+  pcb_pocket = pcb_base.newObject("PartDesign::Pocket", "PCB_Pocket")
+  pcb_pocket.Profile = binder_pcb_tunnel_container
+  pcb_pocket.Type = 1
+  pcb_pocket.Reversed = True
+
+  # FIXME: Required for pocket, can we skip this?
+  doc.RecomputesFrozen = False
+  doc.recompute()
+  doc.RecomputesFrozen = True
+
+  pcb_details_s = pcb_base.newObject("Sketcher::SketchObject", "PCB_Details")
+  pcb_details_s.AttachmentSupport = tower_top_back
+  pcb_details_s.MapMode = 'ObjectXZ'
+  pcb_details_s.setExpression('AttachmentOffset.Rotation.Angle', '180 deg')
+  pcb_details_s.setExpression('AttachmentOffset.Rotation.Axis', u'vector(0; 1; 0)')
+
+  # FIXME: Is there a better way of determining those points?
+  extern_pocket_left = addExternalGeomIndexed(pcb_details_s, pcb_pocket, 'Vertex11')
+  extern_pocket_right = addExternalGeomIndexed(pcb_details_s, pcb_pocket, 'Vertex12')
+
+  (detail_l, detail_t, detail_r, detail_br, detail_b, detail_bl) = pcb_details_s.addGeometry([
+      Part.LineSegment(App.Vector(-2, -1), App.Vector(-2, 0)),
+      Part.LineSegment(App.Vector(-2, 0), App.Vector(2, 0)),
+      Part.LineSegment(App.Vector(2, 0), App.Vector(2, -1)),
+      Part.ArcOfCircle(Part.Circle(), math.pi * 1.5, 0),
+      Part.LineSegment(App.Vector(1, -2), App.Vector(-1, -2)),
+      Part.ArcOfCircle(Part.Circle(), math.pi, math.pi * 1.5),
+    ], False)
+
+  pcb_details_s.addConstraint([
+    Sketcher.Constraint('Coincident', detail_bl, CA.CENTER, extern_pocket_left, CA.START_POINT),
+    Sketcher.Constraint('Coincident', detail_br, CA.CENTER, extern_pocket_right, CA.START_POINT),
+    Sketcher.Constraint('Coincident', detail_l, CA.END_POINT, detail_t, CA.START_POINT),
+    Sketcher.Constraint('Coincident', detail_t, CA.END_POINT, detail_r, CA.START_POINT),
+    Sketcher.Constraint('Tangent', detail_r, CA.END_POINT, detail_br, CA.END_POINT),
+    Sketcher.Constraint('Tangent', detail_l, CA.START_POINT, detail_bl, CA.START_POINT),
+    Sketcher.Constraint('Tangent', detail_b, CA.START_POINT, detail_br, CA.START_POINT),
+    Sketcher.Constraint('Tangent', detail_b, CA.END_POINT, detail_bl, CA.END_POINT),
+    Sketcher.Constraint('Vertical', detail_l),
+    Sketcher.Constraint('Vertical', detail_r),
+    Sketcher.Constraint('PointOnObject', *ORIGIN, detail_t),
+    Sketcher.Constraint('Horizontal', detail_t, CA.START_POINT, detail_t, CA.END_POINT)
+  ])
+
+  addExpressionConstraint(pcb_details_s, 'Radius', f'{Params.PCB_SERVO_CLEARANCE} + {Params.PCB_OUTLINE_TOLERANCE}', detail_br)
+  addExpressionConstraint(pcb_details_s, 'Radius', f'{Params.PCB_SERVO_CLEARANCE} + {Params.PCB_OUTLINE_TOLERANCE}', detail_bl)
+  pcb_details_s.recompute()
+
+  pcb_detailed = pcb_base.newObject("PartDesign::Pocket", "PCB_Detailed")
+  pcb_detailed.Profile = pcb_details_s
+  pcb_detailed.Type = 1
+  pcb_detailed.recompute()
 
   return tower_back_cut
 
