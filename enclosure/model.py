@@ -5,6 +5,7 @@ import math
 import Draft
 import FreeCAD as App
 import Sketcher
+import importDXF
 
 doc = App.newDocument("Enclosure")
 Params = initParams(doc, {
@@ -618,6 +619,23 @@ def createTower(doc):
   pcb_detailed.Profile = pcb_details_s
   pcb_detailed.Type = 1
   pcb_detailed.recompute()
+
+  # Export DXF
+  def exportDXF(source_obj, path: str):
+    face = max([f for f in source_obj.Shape.Faces if f.Surface.isPlanar()], key=lambda f: f.Area)
+    face_normal = face.Surface.Axis
+    projection = Draft.make_shape2dview(pcb_detailed, projectionVector=face_normal)
+    projection.Placement.Rotation = App.Rotation(App.Vector(0, 0, 1), 90)
+    projection_bbox_center = projection.Shape.BoundBox.Center
+    projection.Placement.Base = projection_bbox_center
+
+    # FIMXE: Part::Part2DObjectPython: Link(s) to object(s) 'PCB_Detailed' go out of the allowed scope 'Shape2DView'.
+    # Instead, the linked object(s) reside within 'PCB_Base PCB_Base'.
+    projection.recompute()
+
+    importDXF.export([projection], path)
+
+  exportDXF(pcb_detailed, "exports/pcb-outline.dxf")
 
   return tower_back_cut
 
