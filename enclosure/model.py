@@ -25,6 +25,8 @@ Params = initParams(doc, {
   'SG90_TOOTH_SCREWHOLE': '2 mm',
   'SG90_TEETH_COUNT': '24',
   'SG90_TEETH_HEIGHT': '3.2 mm',
+  'PLA_EXPANSION': '0.2 mm',
+  'OUTER_WALL_THICKNESS': '2 mm',
   'TOTAL_HEIGHT': '80 mm',
   'WINDSHAFT_TILT': '13.75 deg',
   'WINDSHAFT_TO_CAP_BASE_VER': '13.75 mm',
@@ -414,6 +416,53 @@ def createTower(doc):
   tower_angle_112_5_s = createRotatedClone(tower_angle_s, 180 - 22.5 - 45)
 
   tower_sketches.recompute()
+
+  # Create back view sketch (geometry projection)
+  tower_back_s = tower_sketches.newObject("Sketcher::SketchObject", 'Tower_Back')
+  tower_back_s.AttachmentSupport = tower_top_back
+  tower_back_s.MapMode = 'ObjectYZ'
+  tower_back_s.AttachmentOffset.Rotation.Axis = App.Vector(0, 1, 0)
+  tower_back_s.setExpression('AttachmentOffset.Rotation.Angle', '-90 deg')
+
+  # FIXME: This recompute is needed for spline references (why?)
+  doc.RecomputesFrozen = False
+  doc.recompute()
+  doc.RecomputesFrozen = True
+
+  extern_spline_left = addExternalGeomIndexed(tower_back_s, tower_side_left_s, 'Edge1')
+  extern_spline_right = addExternalGeomIndexed(tower_back_s, tower_side_right_s, 'Edge1')
+
+  # FIXME: BSpline control points are not availale in FreeCAD v1.0 (see above).
+  back_spline_left_control = App.Vector(
+    -side_spline_control_point_pos.x,
+    side_spline_control_point_pos.y,
+    side_spline_control_point_pos.z)
+  (back_spline_left, back_spline_right, back_bottom, back_tl, back_tr, back_top) = tower_back_s.addGeometry([
+    Part.BSplineCurve([App.Vector(1, 0, 0), back_spline_left_control, App.Vector(2, -1, 0)]),
+    Part.BSplineCurve([App.Vector(-1, 0, 0), side_spline_control_point_pos, App.Vector(-2, -1, 0)]),
+    Part.LineSegment(App.Vector(2, -1, 0), App.Vector(-2, -1, 0)),
+    Part.LineSegment(App.Vector(-2, -1, 0), App.Vector(-2, 1, 0)),
+    Part.LineSegment(App.Vector(2, -1, 0), App.Vector(2, 1, 0)),
+    Part.LineSegment(App.Vector(-2, 1, 0), App.Vector(2, 1, 0))], False)
+
+  tower_back_s.addConstraint([
+    Sketcher.Constraint('Coincident', back_spline_left, CA.START_POINT, extern_spline_left, CA.START_POINT),
+    Sketcher.Constraint('Coincident', back_spline_left, CA.END_POINT, extern_spline_left, CA.END_POINT),
+    Sketcher.Constraint('Coincident', back_spline_right, CA.START_POINT, extern_spline_right, CA.START_POINT),
+    Sketcher.Constraint('Coincident', back_spline_right, CA.END_POINT, extern_spline_right, CA.END_POINT),
+    Sketcher.Constraint('Coincident', back_bottom, CA.START_POINT, extern_spline_left, CA.END_POINT),
+    Sketcher.Constraint('Coincident', back_bottom, CA.END_POINT, extern_spline_right, CA.END_POINT),
+    Sketcher.Constraint('Coincident', back_tl, CA.START_POINT, extern_spline_left, CA.START_POINT),
+    Sketcher.Constraint('Coincident', back_tr, CA.START_POINT, extern_spline_right, CA.START_POINT),
+    Sketcher.Constraint('Coincident', back_tl, CA.END_POINT, back_top, CA.START_POINT),
+    Sketcher.Constraint('Coincident', back_tr, CA.END_POINT, back_top, CA.END_POINT),
+    Sketcher.Constraint('Vertical', back_tl),
+    Sketcher.Constraint('Vertical', back_tr),
+    Sketcher.Constraint('Horizontal', back_top),
+  ])
+
+  addExpressionConstraint(tower_back_s, 'DistanceY', f'{Params.OUTER_WALL_THICKNESS} - {Params.PLA_EXPANSION}', back_tl, CA.START_POINT, back_tl, CA.END_POINT)
+  tower_back_s.recompute()
 
   # Build vertical surfaces
   tower_surfaces = doc.addObject("App::DocumentObjectGroup", "Tower_Surfaces")
