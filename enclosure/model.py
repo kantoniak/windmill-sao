@@ -38,6 +38,10 @@ Params = initParams(doc, {
   'PCB_THICKNESS': '1.6 mm',
   'PCB_OUTLINE_TOLERANCE': '0.2 mm',
   'PCB_SERVO_CLEARANCE': '1 mm',
+  'CAP_BASE_DIAM': '35 mm',
+  'CAP_BASE_HEIGHT': '1.25 mm',
+  'CAP_BEARING_DIAM': '36.5 mm',
+  'CAP_BEARING_HEIGHT': '2.75 mm',
 })
 doc.RecomputesFrozen = True
 
@@ -639,7 +643,53 @@ def createTower(doc):
 
   return tower_back_cut
 
+
+# Cap
+def createCap(doc):
+  # Create body for round bases
+  cap_bottom = doc.addObject("PartDesign::Body", "Cap_Bottom")
+
+  binder_tower_top_center = cap_bottom.newObject("PartDesign::SubShapeBinder", f"Binder_{tower_top_center.Label}")
+  binder_tower_top_center.Support = tower_top_center
+
+  # Cap base (bearing core rests on the base)
+  base_s = cap_bottom.newObject("Sketcher::SketchObject", "Cap_Base")
+  base_s.AttachmentSupport = tower_top_center
+  base_s.MapMode = 'Translate'
+  base_s.setExpression('AttachmentOffset.Base.z', f'{Params.CAP_BASE_HEIGHT} - ({Params.CAP_BEARING_DIAM} - {Params.CAP_BASE_DIAM})/2')
+
+  base_c = base_s.addGeometry(Part.Circle(App.Vector(), App.Vector(0, 0, 1), 1))
+  addExpressionConstraint(base_s, 'Diameter', Params.CAP_BASE_DIAM, base_c)
+  base_s.recompute()
+
+  base_pad = cap_bottom.newObject('PartDesign::Pad','Cap_Base_Pad')
+  base_pad.Profile = base_s
+  base_pad.Reversed = True
+  base_pad.setExpression('Length', f'{Params.CAP_BASE_HEIGHT} - ({Params.CAP_BEARING_DIAM} - {Params.CAP_BASE_DIAM})/2')
+
+  # Cap bearing core
+  bearing_s = cap_bottom.newObject("Sketcher::SketchObject", "Cap_Bearing")
+  bearing_s.AttachmentSupport = tower_top_center
+  bearing_s.MapMode = 'Translate'
+  bearing_s.setExpression('AttachmentOffset.Base.z', Params.CAP_BASE_HEIGHT)
+
+  bearing_c = bearing_s.addGeometry(Part.Circle(App.Vector(), App.Vector(0, 0, 1), 1))
+  addExpressionConstraint(bearing_s, 'Diameter', Params.CAP_BEARING_DIAM, bearing_c)
+  bearing_s.recompute()
+
+  base_loft = cap_bottom.newObject("PartDesign::AdditiveLoft", "Cap_Base_Loft")
+  base_loft.Profile = base_s
+  base_loft.Sections = [bearing_s]
+
+  bearing_pad = cap_bottom.newObject('PartDesign::Pad','Cap_Bearing_Pad')
+  bearing_pad.Profile = bearing_s
+  bearing_pad.setExpression('Length', f'{Params.CAP_BEARING_HEIGHT}')
+
+  return cap_bottom
+
+
 tower = createTower(doc)
+cap = createCap(doc)
 
 doc.RecomputesFrozen = False
 doc.recompute()
