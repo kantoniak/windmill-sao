@@ -257,17 +257,17 @@ windshaft_axis.setExpression('Placement.Rotation.Axis', u'vector(1; 0; 0)')
 # Note to self: FreeCAD 1.1 will move to Part::DatumPoint: https://wiki.freecad.org/PartDesign_Point
 tower_top_center = doc.addObject("PartDesign::Point", "Tower_Top_Center")
 tower_top_center.MapMode = 'Deactivated'
-tower_top_center.setExpression('Placement.Base', f'vector(0; {Params.WINDSHAFT_TO_CAP_BASE_VER}; -{Params.WINDSHAFT_TO_CAP_BASE_VER})')
+tower_top_center.setExpression('Placement.Base', f'vector(0; {Params.WINDSHAFT_TO_CAP_BASE_HOR}; -{Params.WINDSHAFT_TO_CAP_BASE_VER})')
 
 # Note to self: FreeCAD 1.1 will move to Part::DatumPoint: https://wiki.freecad.org/PartDesign_Point
 tower_top_back = doc.addObject("PartDesign::Point", "Tower_Top_Back")
 tower_top_back.MapMode = 'Deactivated'
-tower_top_back.setExpression('Placement.Base', f'vector(0; {Params.WINDSHAFT_TO_CAP_BASE_VER} + ({Params.TOWER_TOP_WIDTH}/2 * tan(22.5 deg)); -{Params.WINDSHAFT_TO_CAP_BASE_VER})')
+tower_top_back.setExpression('Placement.Base', f'vector(0; {Params.WINDSHAFT_TO_CAP_BASE_HOR} + ({Params.TOWER_TOP_WIDTH}/2 * tan(22.5 deg)); -{Params.WINDSHAFT_TO_CAP_BASE_VER})')
 
 # Note to self: FreeCAD 1.1 will move to Part::DatumPoint: https://wiki.freecad.org/PartDesign_Point
 tower_bottom_center = doc.addObject("PartDesign::Point", "Tower_Bottom_Center")
 tower_bottom_center.MapMode = 'Deactivated'
-tower_bottom_center.setExpression('Placement.Base', f'vector(0; {Params.WINDSHAFT_TO_CAP_BASE_VER}; {Params.WINDSHAFT_TO_CAP_TOP_VER}-{Params.TOTAL_HEIGHT})')
+tower_bottom_center.setExpression('Placement.Base', f'vector(0; {Params.WINDSHAFT_TO_CAP_BASE_HOR}; {Params.WINDSHAFT_TO_CAP_TOP_VER}-{Params.TOTAL_HEIGHT})')
 
 # Note to self: FreeCAD 1.1 will move to Part::DatumLine: https://github.com/FreeCAD/FreeCAD/issues/19095
 tower_axis = doc.addObject("PartDesign::Line", "Tower_Axis")
