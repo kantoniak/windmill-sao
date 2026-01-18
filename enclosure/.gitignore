@@ -9,4 +9,4 @@ __pycache__/
 *.FCStd~
 
 # FreeCAD exports
-enclosure/exports/
+exports/
