@@ -1,11 +1,14 @@
 from helpers import *
 from helpers import ConstraintAttachment as CA
 from itertools import pairwise
+from BOPTools import SplitFeatures
+from BOPTools.BOPFeatures import BOPFeatures
+from CompoundTools import CompoundFilter
+import importDXF
 import math
 import Draft
 import FreeCAD as App
 import Sketcher
-import importDXF
 
 doc = App.newDocument("Enclosure")
 Params = initParams(doc, {
@@ -258,6 +261,11 @@ windshaft_axis.MapMode = 'Deactivated'
 windshaft_axis.setExpression('Placement.Rotation.Angle', f'90 deg - {Params.WINDSHAFT_TILT}')
 windshaft_axis.setExpression('Placement.Rotation.Axis', u'vector(1; 0; 0)')
 
+windshaft_front_plane = doc.addObject("PartDesign::Plane", "Windshaft_Front_Plane")
+windshaft_front_plane.AttachmentSupport = windshaft_axis
+windshaft_front_plane.MapMode = 'NormalToEdge'
+windshaft_front_plane.AttachmentOffset.Base.z = -6
+
 # Note to self: FreeCAD 1.1 will move to Part::DatumPoint: https://wiki.freecad.org/PartDesign_Point
 tower_top_center = doc.addObject("PartDesign::Point", "Tower_Top_Center")
 tower_top_center.MapMode = 'Deactivated'
@@ -277,6 +285,10 @@ tower_bottom_center.setExpression('Placement.Base', f'vector(0; {Params.WINDSHAF
 tower_axis = doc.addObject("PartDesign::Line", "Tower_Axis")
 tower_axis.AttachmentSupport = tower_top_center
 tower_axis.MapMode = 'ObjectZ'
+
+back_plane = doc.addObject("PartDesign::Plane", "Back_Plane")
+back_plane.AttachmentSupport = tower_top_back
+back_plane.MapMode = 'ObjectXZ'
 
 # Tower
 def createTower(doc):
@@ -687,9 +699,113 @@ def createCap(doc):
 
   return cap_bottom
 
+# Servo mounting tunnel
+def createServoTunnel(doc):
+  # Create body for cuts
+  servo_tunnel = doc.addObject("PartDesign::Body", "Servo_Tunnel")
+
+  binder_windshaft_plane = servo_tunnel.newObject("PartDesign::SubShapeBinder", f"Binder_{windshaft_front_plane.Label}")
+  binder_windshaft_plane.Support = windshaft_front_plane
+
+  binder_back_plane = servo_tunnel.newObject("PartDesign::SubShapeBinder", f"Binder_{back_plane.Label}")
+  binder_back_plane.Support = back_plane
+
+  # Base shape
+  base_s = servo_tunnel.newObject("Sketcher::SketchObject", "Servo_Tunnel_Base")
+  base_s.AttachmentSupport = windshaft_axis
+  base_s.MapMode = 'NormalToEdge'
+  base_s.setExpression('AttachmentOffset.Base.z', f'{Params.SG90_BUSHING_HEIGHT} - {Params.PLA_EXPANSION}')
+  base_s.setExpression('AttachmentOffset.Base.y', f'-{Params.SG90_BASE_DEPTH}/2 + {Params.SG90_BASE_WIDTH}/2')
+
+  addCenteredRectangle(base_s, f'{Params.SG90_BASE_WIDTH} + 2*{Params.PLA_EXPANSION}', f'{Params.SG90_BASE_DEPTH} + 2*{Params.PLA_EXPANSION}', *ORIGIN)
+  base_s.recompute()
+
+  base_pad = servo_tunnel.newObject('PartDesign::Pad','Servo_Tunnel_Base_Pad')
+  base_pad.Profile = base_s
+  base_pad.Length = 100
+
+  # Flange
+  flanges_s = servo_tunnel.newObject("Sketcher::SketchObject", "Servo_Tunnel_Flanges")
+  flanges_s.AttachmentSupport = windshaft_axis
+  flanges_s.MapMode = 'NormalToEdge'
+  flanges_s.setExpression('AttachmentOffset.Base.z', f'{Params.SG90_BUSHING_HEIGHT} + {Params.SG90_BASE_HEIGHT} - {Params.SG90_FLANGE_BASE_OFFSET} - {Params.SG90_FLANGE_THICKNESS} - {Params.PLA_EXPANSION}')
+  flanges_s.setExpression('AttachmentOffset.Base.y', f'-{Params.SG90_BASE_DEPTH}/2 + {Params.SG90_BASE_WIDTH}/2')
+
+  addCenteredRectangle(flanges_s, f'{Params.SG90_BASE_WIDTH} + 2*{Params.PLA_EXPANSION}', f'{Params.SG90_BASE_DEPTH} + 2*{Params.SG90_FLANGE_DEPTH} + 2*{Params.PLA_EXPANSION}', *ORIGIN)
+  flanges_s.recompute()
+
+  flanges_pad = servo_tunnel.newObject('PartDesign::Pad','Servo_Tunnel_Flanges_Pad')
+  flanges_pad.Profile = flanges_s
+  flanges_pad.Length = 100
+
+  # Bushing
+  bushing_s = servo_tunnel.newObject("Sketcher::SketchObject", "Servo_Tunnel_Bushing")
+  bushing_s.AttachmentSupport = windshaft_axis
+  bushing_s.MapMode = 'NormalToEdge'
+  bushing_s.setExpression('AttachmentOffset.Base.z', f'-{Params.PLA_EXPANSION}')
+  bushing_s.setExpression('AttachmentOffset.Base.y', f'-{Params.SG90_BASE_DEPTH}/2 + {Params.SG90_BASE_WIDTH}/2')
+
+  (bpoint_t, bpoint_r, bpoint_b) = bushing_s.addGeometry([
+    Part.Point(App.Vector(0, 1, 0)),
+    Part.Point(App.Vector(1, 0, 0)),
+    Part.Point(App.Vector(0, -1, 0))], False)
+
+  addExpressionConstraint(bushing_s, 'DistanceY', f'{Params.SG90_BASE_DEPTH}/2 + {Params.PLA_EXPANSION}', bpoint_t, 1)
+  addExpressionConstraint(bushing_s, 'DistanceY', f'{Params.SG90_BASE_DEPTH}/2 - {Params.SG90_GEAR_FROMTOP} - {Params.SG90_GEAR_RADIUS} - {Params.PLA_EXPANSION}', bpoint_b, 1)
+  addExpressionConstraint(bushing_s, 'DistanceX', f'{Params.SG90_BASE_WIDTH}/2 + {Params.PLA_EXPANSION}', bpoint_r, 1)
+  addExpressionConstraint(bushing_s, 'DistanceY', f'{Params.SG90_BASE_DEPTH}/2 - {Params.SG90_BASE_WIDTH}/2', bpoint_r, 1)
+  bushing_s.addConstraint([
+    Sketcher.Constraint('PointOnObject', bpoint_t, CA.START_POINT, AxisId.Y),
+    Sketcher.Constraint('PointOnObject', bpoint_b, CA.START_POINT, AxisId.Y),
+  ])
+  bushing_s.recompute()
+
+  (brect_ta, brect_ba, brect_l, brect_r) = bushing_s.addGeometry([
+    Part.Arc(App.Vector(1, 0, 0), App.Vector(0, 1, 0), App.Vector(-1, 0, 0)),
+    Part.Arc(App.Vector(1, 0, 0), App.Vector(0, -1, 0), App.Vector(-1, 0, 0)),
+    Part.LineSegment(App.Vector(-1, 0, 0), App.Vector(-1, 1, 0)),
+    Part.LineSegment(App.Vector(1, 0, 0), App.Vector(1, 1, 0))], False)
+
+  bushing_s.addConstraint([
+    Sketcher.Constraint('PointOnObject', brect_ta, CA.CENTER, AxisId.Y),
+    Sketcher.Constraint('PointOnObject', brect_ba, CA.CENTER, AxisId.Y),
+    Sketcher.Constraint('Coincident', brect_l, CA.START_POINT, brect_ba, CA.START_POINT),
+    Sketcher.Constraint('Coincident', brect_r, CA.START_POINT, brect_ba, CA.END_POINT),
+    Sketcher.Constraint('Coincident', brect_l, CA.END_POINT, brect_ta, CA.END_POINT),
+    Sketcher.Constraint('Coincident', brect_r, CA.END_POINT, brect_ta, CA.START_POINT),
+    Sketcher.Constraint('PointOnObject', bpoint_t, CA.START_POINT, brect_ta),
+    Sketcher.Constraint('PointOnObject', bpoint_r, CA.START_POINT, brect_ta),
+    Sketcher.Constraint('PointOnObject', bpoint_b, CA.START_POINT, brect_ba),
+    Sketcher.Constraint('Vertical', brect_l),
+    Sketcher.Constraint('Horizontal', brect_ta, CA.START_POINT, brect_ta, CA.END_POINT),
+    Sketcher.Constraint('Horizontal', brect_ba, CA.START_POINT, brect_ba, CA.END_POINT),
+  ])
+  bushing_s.recompute()
+
+  addExpressionConstraint(bushing_s, 'DistanceX', f'{Params.SG90_GEAR_RADIUS}*2 + 2*{Params.PLA_EXPANSION}', brect_ta, CA.END_POINT, brect_ta, CA.START_POINT)
+  addExpressionConstraint(bushing_s, 'Radius', f'{Params.SG90_GEAR_RADIUS} + {Params.PLA_EXPANSION}', brect_ba)
+  bushing_s.recompute()
+
+  bushing_pad = servo_tunnel.newObject('PartDesign::Pad','Servo_Tunnel_Bushing_Pad')
+  bushing_pad.Profile = bushing_s
+  bushing_pad.Length = 100
+
+  front_cylinder = servo_tunnel.newObject("PartDesign::AdditiveCylinder", "Servo_Tunnel_Front_Cylinder")
+  front_cylinder.AttachmentSupport = windshaft_axis
+  front_cylinder.MapMode = 'NormalToEdge'
+  front_cylinder.MapReversed = True
+  front_cylinder.Height = 100
+  front_cylinder.setExpression('Radius', f'4 mm + {Params.PLA_EXPANSION}')
+
 
 tower = createTower(doc)
 cap = createCap(doc)
+tunnel = createServoTunnel(doc)
+
+# Combine windmill components
+windmill_base = doc.addObject("Part::MultiFuse", "Windmill_Base")
+windmill_base.Shapes = [tower, cap]
+windmill = BOPFeatures(App.activeDocument()).make_cut(["Windmill_Base", "Servo_Tunnel"])
 
 doc.RecomputesFrozen = False
 doc.recompute()
