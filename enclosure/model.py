@@ -8,6 +8,7 @@ import importDXF
 import math
 import Draft
 import FreeCAD as App
+import MeshPart, Mesh
 import Sketcher
 
 doc = App.newDocument("Enclosure")
@@ -810,3 +811,24 @@ windmill = BOPFeatures(App.activeDocument()).make_cut(["Windmill_Base", "Servo_T
 doc.RecomputesFrozen = False
 doc.recompute()
 doc.saveAs("exports/enclosure.FCStd")
+
+# Export STL
+
+# High-definition mesh parameters (tune as needed)
+linear_deflection = 0.01   # mm (smaller = finer)
+angular_deflection = math.radians(0.5)  # radians (smaller = finer)
+relative = False
+
+# Create mesh from the Part shape
+windmill_mesh = MeshPart.meshFromShape(Shape=windmill.Shape,
+                                      LinearDeflection=linear_deflection,
+                                      AngularDeflection=angular_deflection,
+                                      Relative=relative)
+
+# Put mesh into a document object (required for Mesh.export)
+mesh_obj = doc.addObject('Mesh::Feature', 'Windmill_Mesh_HD')
+mesh_obj.Mesh = windmill_mesh
+doc.recompute()
+
+# Export to STL (binary by default). Change path to your desired output.
+Mesh.export([mesh_obj], 'exports/enclosure.stl')
