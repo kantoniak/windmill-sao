@@ -713,7 +713,11 @@ def createCap(doc):
   base_s = cap_bottom.newObject("Sketcher::SketchObject", "Cap_Base")
   base_s.AttachmentSupport = tower_top_center
   base_s.MapMode = 'Translate'
-  base_s.setExpression('AttachmentOffset.Base.z', f'{Params.CAP_BASE_HEIGHT} - ({Params.CAP_BEARING_DIAM} - {Params.CAP_BASE_DIAM})/2')
+
+  # There will be a loft between cap base and bearing for 3D printing
+  loft_height_expr = f'({Params.CAP_BEARING_DIAM} - {Params.CAP_BASE_DIAM})/2'
+  base_height_expr = f'{Params.CAP_BASE_HEIGHT} - ({loft_height_expr})/2'
+  base_s.setExpression('AttachmentOffset.Base.z', base_height_expr)
 
   base_c = base_s.addGeometry(Part.Circle(App.Vector(), App.Vector(0, 0, 1), 1))
   addExpressionConstraint(base_s, 'Diameter', Params.CAP_BASE_DIAM, base_c)
@@ -722,13 +726,13 @@ def createCap(doc):
   base_pad = cap_bottom.newObject('PartDesign::Pad','Cap_Base_Pad')
   base_pad.Profile = base_s
   base_pad.Reversed = True
-  base_pad.setExpression('Length', f'{Params.CAP_BASE_HEIGHT} - ({Params.CAP_BEARING_DIAM} - {Params.CAP_BASE_DIAM})/2')
+  base_pad.setExpression('Length', base_height_expr)
 
   # Cap bearing core
   bearing_s = cap_bottom.newObject("Sketcher::SketchObject", "Cap_Bearing")
   bearing_s.AttachmentSupport = tower_top_center
   bearing_s.MapMode = 'Translate'
-  bearing_s.setExpression('AttachmentOffset.Base.z', Params.CAP_BASE_HEIGHT)
+  bearing_s.setExpression('AttachmentOffset.Base.z', f'{Params.CAP_BASE_HEIGHT} + ({loft_height_expr})/2')
 
   bearing_c = bearing_s.addGeometry(Part.Circle(App.Vector(), App.Vector(0, 0, 1), 1))
   addExpressionConstraint(bearing_s, 'Diameter', Params.CAP_BEARING_DIAM, bearing_c)
@@ -740,7 +744,7 @@ def createCap(doc):
 
   bearing_pad = cap_bottom.newObject('PartDesign::Pad','Cap_Bearing_Pad')
   bearing_pad.Profile = bearing_s
-  bearing_pad.setExpression('Length', f'{Params.CAP_BEARING_HEIGHT}')
+  bearing_pad.setExpression('Length', f'{Params.CAP_BEARING_HEIGHT} - ({loft_height_expr})/2')
 
   return cap_bottom
 
@@ -844,7 +848,7 @@ def createServoTunnel(doc):
 
 
 tower = createTower(doc)
-cap = createTempCap(doc)
+cap = createCap(doc)
 tunnel = createServoTunnel(doc)
 
 # Combine windmill components
