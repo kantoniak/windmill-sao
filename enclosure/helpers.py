@@ -1,5 +1,6 @@
 from enum import Enum
 from itertools import pairwise
+from typing import Iterable
 import FreeCAD as App
 import Part
 import Sketcher
@@ -58,6 +59,14 @@ def addExpressionConstraint(sketch, name: str, expr: str, *constraint_args) -> i
   print(f'Constraints[{constraint_id}]: {expr}')
   sketch.setExpression(f'Constraints[{constraint_id}]', expr)
   return int(constraint_id)
+
+
+def constrainCoincidentPath(geometry: Iterable[int], loop: bool = False):
+  objects = pairwise(geometry)
+  if loop:
+    objects.append((geometry[-1], geometry[0]))
+  return [Sketcher.Constraint('Coincident', a, ConstraintAttachment.END_POINT, b, ConstraintAttachment.START_POINT)
+      for a, b in objects]
 
 
 def addRectangle(sketch, x1: float, y1: float, x2: float, y2: float):

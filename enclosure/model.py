@@ -45,7 +45,14 @@ Params = initParams(doc, {
   'CAP_BASE_DIAM': '35 mm',
   'CAP_BASE_HEIGHT': '1.25 mm',
   'CAP_BEARING_DIAM': '36.5 mm',
-  'CAP_BEARING_HEIGHT': '2.75 mm',
+  'CAP_BEARING_HEIGHT': '4.25 mm',
+  'CAP_FLOOR_DIAM': '40.5 mm',
+  'CAP_FLOOR_HEIGHT': '2.75 mm',
+  'BREAST_OUTWARD_DIST': '20.75 mm',
+  'BREAST_OUTWARD_WIDTH': '20 mm',
+  'BREAST_INWARD_WIDTH': '21.5 mm',
+  'REAR_GABLE_OUTWARD_WIDTH': '24 mm',
+  'REAR_GABLE_INWARD_WIDTH': '25 mm'
 })
 doc.RecomputesFrozen = True
 
@@ -746,7 +753,64 @@ def createCap(doc):
   bearing_pad.Profile = bearing_s
   bearing_pad.setExpression('Length', f'{Params.CAP_BEARING_HEIGHT} - ({loft_height_expr})/2')
 
-  return cap_bottom
+  # Create body for sketch-based top
+  cap_top = doc.addObject("PartDesign::Body", "Cap_Top")
+
+  # Cap floor
+  floor_s = cap_top.newObject("Sketcher::SketchObject", "Cap_Floor")
+  floor_s.AttachmentSupport = tower_top_center
+  floor_s.MapMode = 'Translate'
+  floor_s.setExpression('AttachmentOffset.Base.z', f'{Params.CAP_BASE_HEIGHT} + {Params.CAP_BEARING_HEIGHT}')
+  floor_s.setExpression('Placement.Rotation.Angle', '90 deg')
+
+  floor_geometry = floor_s.addGeometry([
+      Part.LineSegment(App.Vector(-3, 0), App.Vector(-3, 1)),
+      Part.LineSegment(App.Vector(-3, 1), App.Vector(-2, 1)),
+      Part.ArcOfCircle(Part.Circle(App.Vector(-2, 2), App.Vector(0, 0, 1), 1), math.pi * 1.5, 0),
+      Part.Arc(App.Vector(-1, 2), App.Vector(0, 3), App.Vector(1, 2)),
+      # Solver has a hard time if the circle below is centered at (2, 2)
+      Part.ArcOfCircle(Part.Circle(App.Vector(40, 40), App.Vector(0, 0, 1), 1), math.pi, math.pi * 1.5),
+      Part.LineSegment(App.Vector(2, 1), App.Vector(3, 1)),
+      Part.LineSegment(App.Vector(3, 1), App.Vector(3, 0)),
+      Part.LineSegment(App.Vector(3, 0), App.Vector(-3, 0)),
+    ], False)
+  (floor_l, floor_tl, floor_al, floor_at, floor_ar, floor_tr, floor_r, floor_b) = floor_geometry
+
+  floor_s.addConstraint(constrainCoincidentPath([floor_tr, floor_r, floor_b, floor_l, floor_tl]) + [
+    Sketcher.Constraint('Tangent', floor_tl, CA.END_POINT, floor_al, CA.START_POINT),
+    Sketcher.Constraint('Tangent', floor_al, CA.END_POINT, floor_at, CA.END_POINT),
+    Sketcher.Constraint('Tangent', floor_at, CA.START_POINT, floor_ar, CA.START_POINT),
+    Sketcher.Constraint('Tangent', floor_ar, CA.END_POINT, floor_tr, CA.START_POINT),
+    Sketcher.Constraint('Vertical', floor_l),
+    Sketcher.Constraint('Vertical', floor_r),
+    Sketcher.Constraint('Horizontal', floor_b),
+    Sketcher.Constraint('Coincident', floor_at, CA.CENTER, *ORIGIN),
+    Sketcher.Constraint('PointOnObject', floor_b, CA.START_POINT, AxisId.X),
+  ])
+
+  addExpressionConstraint(floor_s, 'DistanceX', Params.BREAST_OUTWARD_DIST, floor_l, CA.START_POINT, *ORIGIN)
+  addExpressionConstraint(floor_s, 'DistanceY', f'{Params.BREAST_OUTWARD_WIDTH}/2', *ORIGIN, floor_l, CA.END_POINT)
+  addExpressionConstraint(floor_s, 'DistanceX', f'{Params.CAP_BEARING_DIAM}/2', floor_tl, CA.END_POINT, *ORIGIN)
+  addExpressionConstraint(floor_s, 'DistanceY', f'{Params.BREAST_INWARD_WIDTH}/2', *ORIGIN, floor_tl, CA.END_POINT)
+  addExpressionConstraint(floor_s, 'DistanceX', f'{Params.CAP_FLOOR_DIAM}/2', *ORIGIN, floor_r, CA.START_POINT)
+  addExpressionConstraint(floor_s, 'DistanceY', f'{Params.REAR_GABLE_OUTWARD_WIDTH}/2', *ORIGIN, floor_r, CA.START_POINT)
+  addExpressionConstraint(floor_s, 'DistanceX', f'{Params.CAP_BEARING_DIAM}/2', *ORIGIN, floor_tr, CA.START_POINT)
+  addExpressionConstraint(floor_s, 'DistanceY', f'{Params.REAR_GABLE_INWARD_WIDTH}/2', *ORIGIN, floor_tr, CA.START_POINT)
+  addExpressionConstraint(floor_s, 'Diameter', Params.CAP_FLOOR_DIAM, floor_at)
+  floor_s.recompute()
+
+  floor_pad = cap_top.newObject('PartDesign::Pad', 'Cap_Floor_Pad')
+  floor_pad.Profile = floor_s
+  floor_pad.setExpression('Length', Params.CAP_FLOOR_HEIGHT)
+
+  # Mirror the top and combine objects
+  cap_top_mirror = doc.addObject('Part::Mirroring', 'Cap_Top_Mirror')
+  cap_top_mirror.Source = cap_top
+  cap_top_mirror.Normal = (1, 0, 0)
+
+  cap = doc.addObject('Part::Compound', 'Cap')
+  cap.Links = [cap_bottom, cap_top, cap_top_mirror]
+  return cap
 
 # Servo mounting tunnel
 def createServoTunnel(doc):
