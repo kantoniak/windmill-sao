@@ -615,9 +615,9 @@ def createTower(doc):
       Part.LineSegment(App.Vector(-2, -1), App.Vector(-2, 0)),
       Part.LineSegment(App.Vector(-2, 0), App.Vector(2, 0)),
       Part.LineSegment(App.Vector(2, 0), App.Vector(2, -1)),
-      Part.ArcOfCircle(Part.Circle(), math.pi * 1.5, 0),
+      Part.ArcOfCircle(Part.Circle(App.Vector(), App.Vector(0, 0, 1), 1), math.pi * 1.5, 0),
       Part.LineSegment(App.Vector(1, -2), App.Vector(-1, -2)),
-      Part.ArcOfCircle(Part.Circle(), math.pi, math.pi * 1.5),
+      Part.ArcOfCircle(Part.Circle(App.Vector(), App.Vector(0, 0, 1), 1), math.pi, math.pi * 1.5),
     ], False)
 
   pcb_details_s.addConstraint([
@@ -916,9 +916,10 @@ cap = createCap(doc)
 tunnel = createServoTunnel(doc)
 
 # Combine windmill components
-windmill_base = doc.addObject("Part::MultiFuse", "Windmill_Base")
-windmill_base.Shapes = [tower, cap]
-windmill = BOPFeatures(App.activeDocument()).make_cut(["Windmill_Base", "Servo_Tunnel"])
+windmill_base = doc.addObject('Part::Compound', 'Windmill_Solids')
+windmill_base.Links = [tower, cap]
+windmill = BOPFeatures(App.activeDocument()).make_cut(["Windmill_Solids", "Servo_Tunnel"])
+windmill.Label = "Windmill"
 
 doc.RecomputesFrozen = False
 doc.recompute()
