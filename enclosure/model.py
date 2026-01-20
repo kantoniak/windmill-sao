@@ -36,7 +36,7 @@ Params = initParams(doc, {
   'WINDSHAFT_TILT': '13.75 deg',
   'WINDSHAFT_TO_CAP_BASE_VER': '13.75 mm',
   'WINDSHAFT_TO_CAP_BASE_HOR': '14.4 mm',
-  'WINDSHAFT_TO_CAP_TOP_VER': '15.4 mm',
+  'WINDSHAFT_TO_ROOF_TOP_VER': '15.4 mm',
   'TOWER_TOP_WIDTH': '36 mm',
   'TOWER_BOTTOM_WIDTH': '56 mm',
   'PCB_THICKNESS': '1.6 mm',
@@ -52,7 +52,12 @@ Params = initParams(doc, {
   'BREAST_OUTWARD_WIDTH': '20 mm',
   'BREAST_INWARD_WIDTH': '21.5 mm',
   'REAR_GABLE_OUTWARD_WIDTH': '24 mm',
-  'REAR_GABLE_INWARD_WIDTH': '25 mm'
+  'REAR_GABLE_INWARD_WIDTH': '25 mm',
+  'CAP_BASE_TO_ROOF_TOP_HOR': '13 mm',
+  'CAP_BASE_TO_ROOF_A_HOR': '11.5 mm',
+  'CAP_BASE_TO_ROOF_B_HOR': '5.5 mm',
+  'CAP_BASE_TO_ROOF_B_VER': '26 mm',
+  'CAP_BASE_TO_REAR_GABLE_TOP_VER': '15 mm',
 })
 doc.RecomputesFrozen = True
 
@@ -287,7 +292,7 @@ tower_top_back.setExpression('Placement.Base', f'vector(0; {Params.WINDSHAFT_TO_
 # Note to self: FreeCAD 1.1 will move to Part::DatumPoint: https://wiki.freecad.org/PartDesign_Point
 tower_bottom_center = doc.addObject("PartDesign::Point", "Tower_Bottom_Center")
 tower_bottom_center.MapMode = 'Deactivated'
-tower_bottom_center.setExpression('Placement.Base', f'vector(0; {Params.WINDSHAFT_TO_CAP_BASE_HOR}; {Params.WINDSHAFT_TO_CAP_TOP_VER}-{Params.TOTAL_HEIGHT})')
+tower_bottom_center.setExpression('Placement.Base', f'vector(0; {Params.WINDSHAFT_TO_CAP_BASE_HOR}; {Params.WINDSHAFT_TO_ROOF_TOP_VER}-{Params.TOTAL_HEIGHT})')
 
 # Note to self: FreeCAD 1.1 will move to Part::DatumLine: https://github.com/FreeCAD/FreeCAD/issues/19095
 tower_axis = doc.addObject("PartDesign::Line", "Tower_Axis")
@@ -677,7 +682,7 @@ def createTempCap(doc):
   bearing_cylinder.MapMode = 'Translate'
   bearing_cylinder.Radius = 22
   bearing_cylinder.setExpression('AttachmentOffset.Base.z', Params.CAP_BASE_HEIGHT)
-  bearing_cylinder.setExpression('Height', f'{Params.WINDSHAFT_TO_CAP_TOP_VER}+{Params.WINDSHAFT_TO_CAP_BASE_VER}-{Params.CAP_BASE_HEIGHT}')
+  bearing_cylinder.setExpression('Height', f'{Params.WINDSHAFT_TO_ROOF_TOP_VER}+{Params.WINDSHAFT_TO_CAP_BASE_VER}-{Params.CAP_BASE_HEIGHT}')
 
   bearing_chamfer = cap_bottom.newObject("PartDesign::Chamfer", "Cap_Bearing_Chamfer")
   bearing_chamfer.Base = (bearing_cylinder, "Edge2")
@@ -808,6 +813,56 @@ def createCap(doc):
   floor_chamfer = cap_floor.newObject('PartDesign::Chamfer', 'Cap_Floor_Chamfer')
   floor_chamfer.Base = (floor_pad, ['Edge3'])
   floor_chamfer.setExpression('Size', f'{Params.BREAST_OUTWARD_DIST} - ({Params.CAP_BEARING_DIAM}/2)')
+
+  # Build supporting geometry
+  # Note to self: FreeCAD 1.1 will move to Part::DatumPoint: https://wiki.freecad.org/PartDesign_Point
+  cap_roof_top = cap_top.newObject("PartDesign::Point", "Cap_Roof_Top")
+  cap_roof_top.MapMode = 'Deactivated'
+  cap_roof_top.setExpression('Placement.Base.y', f'{Params.WINDSHAFT_TO_CAP_BASE_HOR} - {Params.CAP_BASE_TO_ROOF_TOP_HOR}')
+  cap_roof_top.setExpression('Placement.Base.z', Params.WINDSHAFT_TO_ROOF_TOP_VER)
+
+  cap_roof_b = cap_top.newObject("PartDesign::Point", "Cap_Roof_B")
+  cap_roof_b.MapMode = 'Deactivated'
+  cap_roof_b.setExpression('Placement.Base.y', f'{Params.WINDSHAFT_TO_CAP_BASE_HOR} + {Params.CAP_BASE_TO_ROOF_B_HOR}')
+  cap_roof_b.setExpression('Placement.Base.z', f'-{Params.WINDSHAFT_TO_CAP_BASE_VER} + {Params.CAP_BASE_TO_ROOF_B_VER}')
+
+  rear_gable_top = cap_top.newObject("PartDesign::Point", "Rear_Gable_Top")
+  rear_gable_top.MapMode = 'Deactivated'
+  rear_gable_top.setExpression('Placement.Base.y', f'{Params.WINDSHAFT_TO_CAP_BASE_HOR} + ({Params.CAP_FLOOR_DIAM}/2)')
+  rear_gable_top.setExpression('Placement.Base.z', f'-{Params.WINDSHAFT_TO_CAP_BASE_VER} + {Params.CAP_BASE_TO_REAR_GABLE_TOP_VER}')
+
+  cap_floor_center = cap_top.newObject("PartDesign::Point", "Cap_Floor_Center")
+  cap_floor_center.MapMode = 'Deactivated'
+  cap_floor_center.setExpression('Placement.Base.y', Params.WINDSHAFT_TO_CAP_BASE_HOR)
+  cap_floor_center.setExpression('Placement.Base.z', f'-{Params.WINDSHAFT_TO_CAP_BASE_VER} + {Params.CAP_BASE_HEIGHT} + {Params.CAP_BEARING_HEIGHT} + {Params.CAP_FLOOR_HEIGHT}')
+
+  # Build roof side
+  top_middle_s = cap_top.newObject("Sketcher::SketchObject", "Cap_Top_Middle")
+  top_middle_s.AttachmentSupport = cap_floor_center
+  top_middle_s.MapMode = 'Translate'
+
+  (top_middle_a, top_middle_t, top_middle_b) = top_middle_s.addGeometry([
+    Part.ArcOfCircle(Part.Circle(App.Vector(), App.Vector(0, 0, 1), 1), math.pi * 0.75, math.pi * 1.25),
+    Part.LineSegment(App.Vector(0, 1), App.Vector(-1, 1)),
+    Part.LineSegment(App.Vector(0, -1), App.Vector(-1, -1)),
+  ])
+  top_middle_s.toggleConstruction(top_middle_t)
+  top_middle_s.toggleConstruction(top_middle_b)
+
+  top_middle_s.addConstraint([
+    Sketcher.Constraint('Coincident', top_middle_a, CA.CENTER, *ORIGIN),
+    Sketcher.Constraint('PointOnObject', top_middle_t, CA.START_POINT, AxisId.Y),
+    Sketcher.Constraint('PointOnObject', top_middle_b, CA.START_POINT, AxisId.Y),
+    Sketcher.Constraint('Horizontal', top_middle_t),
+    Sketcher.Constraint('Horizontal', top_middle_b),
+    Sketcher.Constraint('PointOnObject', top_middle_a, CA.START_POINT, top_middle_t),
+    Sketcher.Constraint('PointOnObject', top_middle_a, CA.END_POINT, top_middle_b),
+  ])
+
+  addExpressionConstraint(top_middle_s, 'Diameter', Params.CAP_FLOOR_DIAM, top_middle_a)
+  addExpressionConstraint(top_middle_s, 'DistanceY', Params.CAP_BASE_TO_ROOF_B_HOR, *ORIGIN, top_middle_t, CA.START_POINT)
+  addExpressionConstraint(top_middle_s, 'DistanceY', f'-{Params.CAP_BASE_TO_ROOF_A_HOR}', *ORIGIN, top_middle_b, CA.START_POINT)
+  top_middle_s.recompute()
 
   # Mirror the top and combine objects
   cap_top_mirror = doc.addObject('Part::Mirroring', 'Cap_Top_Mirror')
