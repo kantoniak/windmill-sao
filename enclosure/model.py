@@ -754,10 +754,12 @@ def createCap(doc):
   bearing_pad.setExpression('Length', f'{Params.CAP_BEARING_HEIGHT} - ({loft_height_expr})/2')
 
   # Create body for sketch-based top
-  cap_top = doc.addObject("PartDesign::Body", "Cap_Top")
+  cap_top = doc.addObject("App::Part", "Cap_Top")
 
   # Cap floor
-  floor_s = cap_top.newObject("Sketcher::SketchObject", "Cap_Floor")
+  cap_floor = cap_top.newObject("PartDesign::Body", "Cap_Floor")
+
+  floor_s = cap_floor.newObject("Sketcher::SketchObject", "Cap_Floor_Base")
   floor_s.AttachmentSupport = tower_top_center
   floor_s.MapMode = 'Translate'
   floor_s.setExpression('AttachmentOffset.Base.z', f'{Params.CAP_BASE_HEIGHT} + {Params.CAP_BEARING_HEIGHT}')
@@ -799,9 +801,13 @@ def createCap(doc):
   addExpressionConstraint(floor_s, 'Diameter', Params.CAP_FLOOR_DIAM, floor_at)
   floor_s.recompute()
 
-  floor_pad = cap_top.newObject('PartDesign::Pad', 'Cap_Floor_Pad')
+  floor_pad = cap_floor.newObject('PartDesign::Pad', 'Cap_Floor_Pad')
   floor_pad.Profile = floor_s
   floor_pad.setExpression('Length', Params.CAP_FLOOR_HEIGHT)
+
+  floor_chamfer = cap_floor.newObject('PartDesign::Chamfer', 'Cap_Floor_Chamfer')
+  floor_chamfer.Base = (floor_pad, ['Edge3'])
+  floor_chamfer.setExpression('Size', f'{Params.BREAST_OUTWARD_DIST} - ({Params.CAP_BEARING_DIAM}/2)')
 
   # Mirror the top and combine objects
   cap_top_mirror = doc.addObject('Part::Mirroring', 'Cap_Top_Mirror')
