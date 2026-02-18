@@ -761,40 +761,80 @@ def createCap(doc):
   # Create body for sketch-based top
   cap_top = doc.addObject("App::Part", "Cap_Top")
 
-  # Cap floor
-  cap_floor = cap_top.newObject("PartDesign::Body", "Cap_Floor")
+  # Top geometry
+  cap_floor_center = cap_top.newObject("PartDesign::Point", "Cap_Floor_Center")
+  cap_floor_center.MapMode = 'Deactivated'
+  cap_floor_center.setExpression('Placement.Base.y', Params.WINDSHAFT_TO_CAP_BASE_HOR)
+  cap_floor_center.setExpression('Placement.Base.z', f'-{Params.WINDSHAFT_TO_CAP_BASE_VER} + {Params.CAP_BASE_HEIGHT} + {Params.CAP_BEARING_HEIGHT} + {Params.CAP_FLOOR_HEIGHT}')
 
-  floor_s = cap_floor.newObject("Sketcher::SketchObject", "Cap_Floor_Base")
-  floor_s.AttachmentSupport = tower_top_center
-  floor_s.MapMode = 'Translate'
-  floor_s.setExpression('AttachmentOffset.Base.z', f'{Params.CAP_BASE_HEIGHT} + {Params.CAP_BEARING_HEIGHT}')
-  floor_s.setExpression('Placement.Rotation.Angle', '90 deg')
+  roof_ridge_top = cap_top.newObject("PartDesign::Point", "Roof_Ridge_Top")
+  roof_ridge_top.MapMode = 'Translate'
+  roof_ridge_top.setExpression('Placement.Base.y', f'{Params.WINDSHAFT_TO_CAP_BASE_HOR} - {Params.CAP_BASE_TO_ROOF_TOP_HOR}')
+  roof_ridge_top.setExpression('Placement.Base.z', Params.WINDSHAFT_TO_ROOF_TOP_VER)
+
+  roof_ridge_b = cap_top.newObject("PartDesign::Point", "Roof_Ridge_B")
+  roof_ridge_b.MapMode = 'Translate'
+  roof_ridge_b.setExpression('Placement.Base.y', f'{Params.WINDSHAFT_TO_CAP_BASE_HOR} + {Params.CAP_BASE_TO_ROOF_B_HOR}')
+  roof_ridge_b.setExpression('Placement.Base.z', f'-{Params.WINDSHAFT_TO_CAP_BASE_VER} + {Params.CAP_BASE_TO_ROOF_B_VER}')
+
+  roof_ridge_a = cap_top.newObject("PartDesign::Point", "Roof_Ridge_A")
+  roof_ridge_a.MapMode = 'Translate'
+  roof_ridge_a.setExpression('Placement.Base.y', f'{Params.WINDSHAFT_TO_CAP_BASE_HOR} - {Params.CAP_BASE_TO_ROOF_A_HOR}')
+  roof_ridge_a.setExpression('Placement.Base.z', 'Roof_Ridge_Top.Placement.Base.z + (Placement.Base.y - Roof_Ridge_Top.Placement.Base.y) * (Roof_Ridge_B.Placement.Base.z - Roof_Ridge_Top.Placement.Base.z) / (Roof_Ridge_B.Placement.Base.y - Roof_Ridge_Top.Placement.Base.y)')
+
+  rear_gable_top = cap_top.newObject("PartDesign::Point", "Rear_Gable_Top")
+  rear_gable_top.MapMode = 'Deactivated'
+  rear_gable_top.setExpression('Placement.Base.y', f'{Params.WINDSHAFT_TO_CAP_BASE_HOR} + ({Params.CAP_FLOOR_DIAM}/2)')
+  rear_gable_top.setExpression('Placement.Base.z', f'-{Params.WINDSHAFT_TO_CAP_BASE_VER} + {Params.CAP_BASE_TO_REAR_GABLE_TOP_VER}')
+
+  # Floor sketch, with edges separated at the roof ridge stops
+  floor_s = cap_top.newObject("Sketcher::SketchObject", "Cap_Floor_Top")
+  floor_s.AttachmentSupport = cap_floor_center
+  floor_s.MapMode = 'ObjectXY'
+  floor_s.setExpression('AttachmentOffset.Rotation.Angle', '90 deg')
 
   floor_geometry = floor_s.addGeometry([
       Part.LineSegment(App.Vector(-3, 0), App.Vector(-3, 1)),
       Part.LineSegment(App.Vector(-3, 1), App.Vector(-2, 1)),
-      Part.ArcOfCircle(Part.Circle(App.Vector(-2, 2), App.Vector(0, 0, 1), 1), math.pi * 1.5, 0),
-      Part.Arc(App.Vector(-1, 2), App.Vector(0, 3), App.Vector(1, 2)),
+      # Solver has a hard time if the circle below is centered at (-2, 2)
+      Part.ArcOfCircle(Part.Circle(App.Vector(-20, 15), App.Vector(0, 0, 1), 1), math.pi * 1.5, 0),
+      Part.ArcOfCircle(Part.Circle(App.Vector(0, 2), App.Vector(0, 0, 1), 1), 0, math.pi * 0.25),
+      Part.ArcOfCircle(Part.Circle(App.Vector(0, 2), App.Vector(0, 0, 1), 1), math.pi * 0.25, math.pi * 0.75),
+      Part.ArcOfCircle(Part.Circle(App.Vector(0, 2), App.Vector(0, 0, 1), 1), math.pi * 0.75, math.pi),
       # Solver has a hard time if the circle below is centered at (2, 2)
-      Part.ArcOfCircle(Part.Circle(App.Vector(40, 40), App.Vector(0, 0, 1), 1), math.pi, math.pi * 1.5),
+      Part.ArcOfCircle(Part.Circle(App.Vector(-20, 35), App.Vector(0, 0, 1), 1), math.pi, math.pi * 1.5),
       Part.LineSegment(App.Vector(2, 1), App.Vector(3, 1)),
       Part.LineSegment(App.Vector(3, 1), App.Vector(3, 0)),
       Part.LineSegment(App.Vector(3, 0), App.Vector(-3, 0)),
     ], False)
-  (floor_l, floor_tl, floor_al, floor_at, floor_ar, floor_tr, floor_r, floor_b) = floor_geometry
+  (floor_l, floor_tl, floor_al, floor_atl, floor_atc, floor_atr, floor_ar, floor_tr, floor_r, floor_b) = floor_geometry
+
+  extern_ridge_a = addExternalGeomIndexed(floor_s, roof_ridge_a, 'Vertex1')
+  extern_ridge_b = addExternalGeomIndexed(floor_s, roof_ridge_b, 'Vertex1')
 
   floor_s.addConstraint(constrainCoincidentPath([floor_tr, floor_r, floor_b, floor_l, floor_tl]) + [
-    Sketcher.Constraint('Tangent', floor_tl, CA.END_POINT, floor_al, CA.START_POINT),
-    Sketcher.Constraint('Tangent', floor_al, CA.END_POINT, floor_at, CA.END_POINT),
-    Sketcher.Constraint('Tangent', floor_at, CA.START_POINT, floor_ar, CA.START_POINT),
-    Sketcher.Constraint('Tangent', floor_ar, CA.END_POINT, floor_tr, CA.START_POINT),
     Sketcher.Constraint('Vertical', floor_l),
     Sketcher.Constraint('Vertical', floor_r),
     Sketcher.Constraint('Horizontal', floor_b),
-    Sketcher.Constraint('Coincident', floor_at, CA.CENTER, *ORIGIN),
+    Sketcher.Constraint('Vertical', extern_ridge_a, CA.START_POINT, floor_atc, CA.END_POINT),
+    Sketcher.Constraint('Vertical', extern_ridge_b, CA.START_POINT, floor_atc, CA.START_POINT),
+    Sketcher.Constraint('Coincident', floor_atl, CA.CENTER, *ORIGIN),
+    Sketcher.Constraint('Coincident', floor_atc, CA.CENTER, *ORIGIN),
+    Sketcher.Constraint('Coincident', floor_atr, CA.CENTER, *ORIGIN),
     Sketcher.Constraint('PointOnObject', floor_b, CA.START_POINT, AxisId.X),
   ])
+  floor_s.recompute()
 
+  floor_s.addConstraint([
+    Sketcher.Constraint('Tangent', floor_tl, CA.END_POINT, floor_al, CA.START_POINT),
+    Sketcher.Constraint('Tangent', floor_al, CA.END_POINT, floor_atl, CA.END_POINT),
+    Sketcher.Constraint('Tangent', floor_atr, CA.START_POINT, floor_ar, CA.START_POINT),
+    Sketcher.Constraint('Tangent', floor_ar, CA.END_POINT, floor_tr, CA.START_POINT),
+  ])
+
+  floor_s_constr_diam_atl = addExpressionConstraint(floor_s, 'Diameter', Params.CAP_FLOOR_DIAM, floor_atl)
+  floor_s_constr_diam_atc = addExpressionConstraint(floor_s, 'Diameter', Params.CAP_FLOOR_DIAM, floor_atc)
+  floor_s_constr_diam_atr = addExpressionConstraint(floor_s, 'Diameter', Params.CAP_FLOOR_DIAM, floor_atr)
   addExpressionConstraint(floor_s, 'DistanceX', Params.BREAST_OUTWARD_DIST, floor_l, CA.START_POINT, *ORIGIN)
   addExpressionConstraint(floor_s, 'DistanceY', f'{Params.BREAST_OUTWARD_WIDTH}/2', *ORIGIN, floor_l, CA.END_POINT)
   addExpressionConstraint(floor_s, 'DistanceX', f'{Params.CAP_BEARING_DIAM}/2', floor_tl, CA.END_POINT, *ORIGIN)
@@ -803,66 +843,30 @@ def createCap(doc):
   addExpressionConstraint(floor_s, 'DistanceY', f'{Params.REAR_GABLE_OUTWARD_WIDTH}/2', *ORIGIN, floor_r, CA.START_POINT)
   addExpressionConstraint(floor_s, 'DistanceX', f'{Params.CAP_BEARING_DIAM}/2', *ORIGIN, floor_tr, CA.START_POINT)
   addExpressionConstraint(floor_s, 'DistanceY', f'{Params.REAR_GABLE_INWARD_WIDTH}/2', *ORIGIN, floor_tr, CA.START_POINT)
-  addExpressionConstraint(floor_s, 'Diameter', Params.CAP_FLOOR_DIAM, floor_at)
   floor_s.recompute()
 
+  floor_s.delConstraint(floor_s_constr_diam_atr)
+  floor_s.delConstraint(floor_s_constr_diam_atl)
+  floor_s.addConstraint([
+    Sketcher.Constraint('Coincident', floor_atl, CA.START_POINT, floor_atc, CA.END_POINT),
+    Sketcher.Constraint('Coincident', floor_atc, CA.START_POINT, floor_atr, CA.END_POINT),
+  ])
+  floor_s.recompute()
+
+  # Cap floor
+  cap_floor = cap_top.newObject("PartDesign::Body", "Cap_Floor")
+
+  binder_floor_s = cap_floor.newObject("PartDesign::ShapeBinder", f"Binder_{floor_s.Label}")
+  binder_floor_s.Support = floor_s
+
   floor_pad = cap_floor.newObject('PartDesign::Pad', 'Cap_Floor_Pad')
-  floor_pad.Profile = floor_s
+  floor_pad.Profile = binder_floor_s
+  floor_pad.Reversed = True
   floor_pad.setExpression('Length', Params.CAP_FLOOR_HEIGHT)
 
   floor_chamfer = cap_floor.newObject('PartDesign::Chamfer', 'Cap_Floor_Chamfer')
-  floor_chamfer.Base = (floor_pad, ['Edge3'])
+  floor_chamfer.Base = (floor_pad, ['Edge16'])
   floor_chamfer.setExpression('Size', f'{Params.BREAST_OUTWARD_DIST} - ({Params.CAP_BEARING_DIAM}/2)')
-
-  # Build supporting geometry
-  # Note to self: FreeCAD 1.1 will move to Part::DatumPoint: https://wiki.freecad.org/PartDesign_Point
-  cap_roof_top = cap_top.newObject("PartDesign::Point", "Cap_Roof_Top")
-  cap_roof_top.MapMode = 'Deactivated'
-  cap_roof_top.setExpression('Placement.Base.y', f'{Params.WINDSHAFT_TO_CAP_BASE_HOR} - {Params.CAP_BASE_TO_ROOF_TOP_HOR}')
-  cap_roof_top.setExpression('Placement.Base.z', Params.WINDSHAFT_TO_ROOF_TOP_VER)
-
-  cap_roof_b = cap_top.newObject("PartDesign::Point", "Cap_Roof_B")
-  cap_roof_b.MapMode = 'Deactivated'
-  cap_roof_b.setExpression('Placement.Base.y', f'{Params.WINDSHAFT_TO_CAP_BASE_HOR} + {Params.CAP_BASE_TO_ROOF_B_HOR}')
-  cap_roof_b.setExpression('Placement.Base.z', f'-{Params.WINDSHAFT_TO_CAP_BASE_VER} + {Params.CAP_BASE_TO_ROOF_B_VER}')
-
-  rear_gable_top = cap_top.newObject("PartDesign::Point", "Rear_Gable_Top")
-  rear_gable_top.MapMode = 'Deactivated'
-  rear_gable_top.setExpression('Placement.Base.y', f'{Params.WINDSHAFT_TO_CAP_BASE_HOR} + ({Params.CAP_FLOOR_DIAM}/2)')
-  rear_gable_top.setExpression('Placement.Base.z', f'-{Params.WINDSHAFT_TO_CAP_BASE_VER} + {Params.CAP_BASE_TO_REAR_GABLE_TOP_VER}')
-
-  cap_floor_center = cap_top.newObject("PartDesign::Point", "Cap_Floor_Center")
-  cap_floor_center.MapMode = 'Deactivated'
-  cap_floor_center.setExpression('Placement.Base.y', Params.WINDSHAFT_TO_CAP_BASE_HOR)
-  cap_floor_center.setExpression('Placement.Base.z', f'-{Params.WINDSHAFT_TO_CAP_BASE_VER} + {Params.CAP_BASE_HEIGHT} + {Params.CAP_BEARING_HEIGHT} + {Params.CAP_FLOOR_HEIGHT}')
-
-  # Build roof side
-  top_middle_s = cap_top.newObject("Sketcher::SketchObject", "Cap_Top_Middle")
-  top_middle_s.AttachmentSupport = cap_floor_center
-  top_middle_s.MapMode = 'Translate'
-
-  (top_middle_a, top_middle_t, top_middle_b) = top_middle_s.addGeometry([
-    Part.ArcOfCircle(Part.Circle(App.Vector(), App.Vector(0, 0, 1), 1), math.pi * 0.75, math.pi * 1.25),
-    Part.LineSegment(App.Vector(0, 1), App.Vector(-1, 1)),
-    Part.LineSegment(App.Vector(0, -1), App.Vector(-1, -1)),
-  ])
-  top_middle_s.toggleConstruction(top_middle_t)
-  top_middle_s.toggleConstruction(top_middle_b)
-
-  top_middle_s.addConstraint([
-    Sketcher.Constraint('Coincident', top_middle_a, CA.CENTER, *ORIGIN),
-    Sketcher.Constraint('PointOnObject', top_middle_t, CA.START_POINT, AxisId.Y),
-    Sketcher.Constraint('PointOnObject', top_middle_b, CA.START_POINT, AxisId.Y),
-    Sketcher.Constraint('Horizontal', top_middle_t),
-    Sketcher.Constraint('Horizontal', top_middle_b),
-    Sketcher.Constraint('PointOnObject', top_middle_a, CA.START_POINT, top_middle_t),
-    Sketcher.Constraint('PointOnObject', top_middle_a, CA.END_POINT, top_middle_b),
-  ])
-
-  addExpressionConstraint(top_middle_s, 'Diameter', Params.CAP_FLOOR_DIAM, top_middle_a)
-  addExpressionConstraint(top_middle_s, 'DistanceY', Params.CAP_BASE_TO_ROOF_B_HOR, *ORIGIN, top_middle_t, CA.START_POINT)
-  addExpressionConstraint(top_middle_s, 'DistanceY', f'-{Params.CAP_BASE_TO_ROOF_A_HOR}', *ORIGIN, top_middle_b, CA.START_POINT)
-  top_middle_s.recompute()
 
   # Mirror the top and combine objects
   cap_top_mirror = doc.addObject('Part::Mirroring', 'Cap_Top_Mirror')
