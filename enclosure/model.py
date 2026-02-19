@@ -767,6 +767,10 @@ def createCap(doc):
   cap_floor_center.setExpression('Placement.Base.y', Params.WINDSHAFT_TO_CAP_BASE_HOR)
   cap_floor_center.setExpression('Placement.Base.z', f'-{Params.WINDSHAFT_TO_CAP_BASE_VER} + {Params.CAP_BASE_HEIGHT} + {Params.CAP_BEARING_HEIGHT} + {Params.CAP_FLOOR_HEIGHT}')
 
+  cap_floor_centerline = cap_top.newObject("PartDesign::Line", "Cap_Floor_Centerline")
+  cap_floor_centerline.AttachmentSupport = cap_floor_center
+  cap_floor_centerline.MapMode = 'ObjectY'
+
   roof_ridge_top = cap_top.newObject("PartDesign::Point", "Roof_Ridge_Top")
   roof_ridge_top.MapMode = 'Translate'
   roof_ridge_top.setExpression('Placement.Base.y', f'{Params.WINDSHAFT_TO_CAP_BASE_HOR} - {Params.CAP_BASE_TO_ROOF_TOP_HOR}')
@@ -867,6 +871,65 @@ def createCap(doc):
   floor_chamfer = cap_floor.newObject('PartDesign::Chamfer', 'Cap_Floor_Chamfer')
   floor_chamfer.Base = (floor_pad, ['Edge16'])
   floor_chamfer.setExpression('Size', f'{Params.BREAST_OUTWARD_DIST} - ({Params.CAP_BEARING_DIAM}/2)')
+
+  # Roof rib A
+  rib_a_s = cap_top.newObject("Sketcher::SketchObject", "Roof_Rib_A")
+  rib_a_s.AttachmentSupport = [cap_floor_centerline, roof_ridge_a]
+  rib_a_s.MapMode = 'ParallelPlane'
+
+  extern_side_a = addExternalGeomIndexed(rib_a_s, floor_s, 'Vertex5')
+  extern_ridge_a = addExternalGeomIndexed(rib_a_s, roof_ridge_a, 'Point')
+
+  (rib_a_arc, rib_a_lt, rib_a_lb) = rib_a_s.addGeometry([
+    Part.ArcOfCircle(Part.Circle(App.Vector(20, -10, 0), App.Vector(0, 0, 1), 21), math.pi / 2, math.pi),
+    Part.LineSegment(App.Vector(0, 1, 0), App.Vector(0, 0, 0)),
+    Part.LineSegment(App.Vector(-1, 0, 0), App.Vector(0, 0, 0)),
+  ], False)
+
+  rib_a_constraints = rib_a_s.addConstraint([
+    Sketcher.Constraint('Coincident', rib_a_arc, CA.START_POINT, extern_ridge_a, CA.START_POINT),
+    Sketcher.Constraint('Coincident', rib_a_arc, CA.END_POINT, extern_side_a, CA.START_POINT),
+    Sketcher.Constraint('Coincident', rib_a_lt, CA.START_POINT, extern_ridge_a, CA.START_POINT),
+    Sketcher.Constraint('Coincident', rib_a_lt, CA.END_POINT, rib_a_arc, CA.CENTER),
+    Sketcher.Constraint('Coincident', rib_a_lb, CA.START_POINT, extern_side_a, CA.START_POINT),
+    Sketcher.Constraint('Coincident', rib_a_lb, CA.END_POINT, rib_a_arc, CA.CENTER),
+    Sketcher.Constraint('Angle', rib_a_lt, CA.START_POINT, rib_a_lb, CA.START_POINT, math.radians(59))
+  ])
+
+  rib_a_s.toggleConstruction(rib_a_lb)
+  rib_a_s.toggleConstruction(rib_a_lt)
+  rib_a_s.setDatum(rib_a_constraints[-1], App.Units.Quantity('59 deg'))
+  rib_a_s.recompute()
+
+  # Roof rib B
+  rib_b_s = cap_top.newObject("Sketcher::SketchObject", "Roof_Rib_B")
+  rib_b_s.AttachmentSupport = [cap_floor_centerline, roof_ridge_b]
+  rib_b_s.MapMode = 'ParallelPlane'
+
+  # FIXME: This is a really weird bug. Everything EXCEPT Vertex6 gets correctly linked. Using Edge6 instead.
+  extern_side_b = addExternalGeomIndexed(rib_b_s, floor_s, 'Edge6')
+  extern_ridge_b = addExternalGeomIndexed(rib_b_s, roof_ridge_b, 'Point')
+
+  (rib_b_arc, rib_b_lt, rib_b_lb) = rib_b_s.addGeometry([
+    Part.ArcOfCircle(Part.Circle(App.Vector(20, -10, 0), App.Vector(0, 0, 1), 21), math.pi / 2, math.pi),
+    Part.LineSegment(App.Vector(0, 1, 0), App.Vector(0, 0, 0)),
+    Part.LineSegment(App.Vector(-1, 0, 0), App.Vector(0, 0, 0)),
+  ], False)
+
+  rib_b_constraints = rib_b_s.addConstraint([
+    Sketcher.Constraint('Coincident', rib_b_arc, CA.START_POINT, extern_ridge_b, CA.START_POINT),
+    Sketcher.Constraint('Coincident', rib_b_arc, CA.END_POINT, extern_side_b, CA.END_POINT),
+    Sketcher.Constraint('Coincident', rib_b_lt, CA.START_POINT, extern_ridge_b, CA.START_POINT),
+    Sketcher.Constraint('Coincident', rib_b_lt, CA.END_POINT, rib_b_arc, CA.CENTER),
+    Sketcher.Constraint('Coincident', rib_b_lb, CA.START_POINT, extern_side_b, CA.END_POINT),
+    Sketcher.Constraint('Coincident', rib_b_lb, CA.END_POINT, rib_b_arc, CA.CENTER),
+    Sketcher.Constraint('Angle', rib_b_lt, CA.END_POINT, rib_b_lb, CA.END_POINT, math.radians(40))
+  ])
+
+  rib_b_s.toggleConstruction(rib_b_lb)
+  rib_b_s.toggleConstruction(rib_b_lt)
+  rib_b_s.setDatum(rib_b_constraints[-1], App.Units.Quantity('40 deg'))
+  rib_b_s.recompute()
 
   # Mirror the top and combine objects
   cap_top_mirror = doc.addObject('Part::Mirroring', 'Cap_Top_Mirror')
