@@ -62,9 +62,9 @@ def addExpressionConstraint(sketch, name: str, expr: str, *constraint_args) -> i
 
 
 def constrainCoincidentPath(geometry: Iterable[int], loop: bool = False):
-  objects = pairwise(geometry)
   if loop:
-    objects.append((geometry[-1], geometry[0]))
+    geometry.append(geometry[0])
+  objects = pairwise(geometry)
   return [Sketcher.Constraint('Coincident', a, ConstraintAttachment.END_POINT, b, ConstraintAttachment.START_POINT)
       for a, b in objects]
 
