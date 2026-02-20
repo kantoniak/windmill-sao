@@ -993,6 +993,51 @@ def createCap(doc):
 
   roof_front_s.recompute()
 
+  # Roof ridge
+  roof_ridge_s = cap_top.newObject("Sketcher::SketchObject", "Roof_Ridge")
+  roof_ridge_s.AttachmentSupport = cap_floor_center
+  roof_ridge_s.MapMode = "ObjectYZ"
+
+  extern_ridge_top = addExternalGeomIndexed(roof_ridge_s, roof_ridge_top, "Point")
+  extern_ridge_a = addExternalGeomIndexed(roof_ridge_s, roof_ridge_a, "Point")
+  extern_ridge_b = addExternalGeomIndexed(roof_ridge_s, roof_ridge_b, "Point")
+  extern_ridge_rear = addExternalGeomIndexed(roof_ridge_s, rear_gable_top, "Point")
+
+  (ridge_ta, ridge_ab, ridge_br) = roof_ridge_s.addGeometry([
+    Part.LineSegment(App.Vector(0,0,0), App.Vector(1,0,0)),
+    Part.LineSegment(App.Vector(1,0,0), App.Vector(2,0,0)),
+    Part.LineSegment(App.Vector(2,0,0), App.Vector(3,0,0)),
+  ], False)
+
+  roof_ridge_s.addConstraint(constrainCoincidentPath([ridge_ta, ridge_ab, ridge_br]) + [
+    Sketcher.Constraint('Coincident', ridge_ta, CA.START_POINT, extern_ridge_top, CA.START_POINT),
+    Sketcher.Constraint('Coincident', ridge_ta, CA.END_POINT, extern_ridge_a, CA.START_POINT),
+    Sketcher.Constraint('Coincident', ridge_ab, CA.END_POINT, extern_ridge_b, CA.START_POINT),
+    Sketcher.Constraint('Coincident', ridge_br, CA.END_POINT, extern_ridge_rear, CA.START_POINT),
+  ])
+  roof_ridge_s.recompute()
+
+  # (WIP) Roof surfaces
+  print("Creating roof surface, this may take a while...")
+  roof_surface_side = cap_top.newObject("Surface::Filling", "Roof_Surface_Side")
+  roof_surface_side.BoundaryEdges = [
+    (rib_b_s, "Edge1"),
+    (roof_ridge_s, "Edge2"),
+    (roof_ridge_s, "Edge1"),
+    (roof_front_s, "Edge2"),
+    (breast_front_s, "Edge2"),
+    (floor_s, "Edge2"),
+    (floor_s, "Edge3"),
+    (floor_s, "Edge4"),
+    (floor_s, "Edge5"),
+  ]
+  roof_surface_side.UnboundEdges = [
+    (rib_a_s, "Edge1"),
+  ]
+  roof_surface_side.Degree = 2
+  roof_surface_side.Iterations = 2
+  roof_surface_side.recompute()
+
   # Mirror the top and combine objects
   cap_top_mirror = doc.addObject('Part::Mirroring', 'Cap_Top_Mirror')
   cap_top_mirror.Source = cap_top
