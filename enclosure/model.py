@@ -50,6 +50,7 @@ Params = initParams(doc, {
   'CAP_FLOOR_HEIGHT': '2.75 mm',
   'BREAST_OUTWARD_DIST': '20.75 mm',
   'BREAST_OUTWARD_WIDTH': '20 mm',
+  'BREAST_OUTWARD_HEIGHT': '3 mm',
   'BREAST_INWARD_WIDTH': '21.5 mm',
   'REAR_GABLE_OUTWARD_WIDTH': '24 mm',
   'REAR_GABLE_INWARD_WIDTH': '25 mm',
@@ -791,6 +792,12 @@ def createCap(doc):
   rear_gable_top.setExpression('Placement.Base.y', f'{Params.WINDSHAFT_TO_CAP_BASE_HOR} + ({Params.CAP_FLOOR_DIAM}/2)')
   rear_gable_top.setExpression('Placement.Base.z', f'-{Params.WINDSHAFT_TO_CAP_BASE_VER} + {Params.CAP_BASE_TO_REAR_GABLE_TOP_VER}')
 
+  breast_front_top = cap_top.newObject("PartDesign::Point", "Breast_Front_Top")
+  breast_front_top.AttachmentSupport = cap_floor_center
+  breast_front_top.MapMode = "ObjectOrigin"
+  breast_front_top.setExpression('AttachmentOffset.Base.y', f'-{Params.BREAST_OUTWARD_DIST}')
+  breast_front_top.setExpression('AttachmentOffset.Base.z', f'{Params.BREAST_OUTWARD_HEIGHT}')
+
   # Floor sketch, with edges separated at the roof ridge stops
   floor_s = cap_top.newObject("Sketcher::SketchObject", "Cap_Floor_Top")
   floor_s.AttachmentSupport = cap_floor_center
@@ -930,6 +937,61 @@ def createCap(doc):
   rib_b_s.toggleConstruction(rib_b_lt)
   rib_b_s.setDatum(rib_b_constraints[-1], App.Units.Quantity('40 deg'))
   rib_b_s.recompute()
+
+  # Breast front
+  breast_front_s = cap_top.newObject("Sketcher::SketchObject", "Breast_Front")
+  breast_front_s.AttachmentSupport = breast_front_top
+  breast_front_s.MapMode = "ObjectXZ"
+
+  (breast_f1, breast_f2, breast_f3, breast_f4) = breast_front_s.addGeometry([
+    Part.LineSegment(App.Vector(0, 0, 0),  App.Vector(-1, 0, 0)),   # horizontal left
+    Part.LineSegment(App.Vector(-1, 0, 0), App.Vector(-1, -1, 0)),  # vertical down
+    Part.LineSegment(App.Vector(-1, -1, 0), App.Vector(0, -1, 0)),  # horizontal right
+    Part.LineSegment(App.Vector(0, -1, 0),  App.Vector(0, 0, 0)),   # vertical up
+  ], False)
+
+  breast_front_s.addConstraint(constrainCoincidentPath([breast_f1, breast_f2, breast_f3, breast_f4], True) + [
+    Sketcher.Constraint("Coincident", breast_f1, CA.START_POINT, *ORIGIN),
+    Sketcher.Constraint("Horizontal", breast_f1),
+    Sketcher.Constraint("Horizontal", breast_f3),
+    Sketcher.Constraint("Vertical",   breast_f2),
+    Sketcher.Constraint("Vertical",   breast_f4),
+  ])
+  addExpressionConstraint(breast_front_s, "DistanceX", f'{Params.BREAST_OUTWARD_WIDTH}/2', breast_f2, CA.END_POINT, *ORIGIN)
+  addExpressionConstraint(breast_front_s, "DistanceY", f'{Params.BREAST_OUTWARD_HEIGHT}', breast_f2, CA.END_POINT, *ORIGIN)
+  breast_front_s.recompute()
+
+  # Roof front
+  roof_front_s = cap_top.newObject("Sketcher::SketchObject", "Roof_Front")
+  roof_front_s.AttachmentSupport = [breast_front_top, roof_ridge_top]
+  roof_front_s.MapMode = "OYZ"
+
+  extern_top = addExternalGeomIndexed(roof_front_s, roof_ridge_top, "Point")
+
+  (front_h, front_slant, front_v, front_arc) = roof_front_s.addGeometry([
+    Part.LineSegment(App.Vector(0,0,0), App.Vector(-1,0,0)),
+    Part.LineSegment(App.Vector(-1,0,0), App.Vector(-1,1,0)),
+    Part.LineSegment(App.Vector(0,0,0), App.Vector(0,1,0)),
+    Part.ArcOfCircle(Part.Circle(App.Vector(5,0,0), App.Vector(0,0,1), 1), math.pi/2, math.pi),
+  ], False)
+  roof_front_s.toggleConstruction(front_slant)
+
+  roof_front_s.addConstraint([
+    Sketcher.Constraint('Coincident', front_h, CA.START_POINT, *ORIGIN),
+    Sketcher.Constraint('Horizontal', front_h),
+    Sketcher.Constraint('Coincident', front_v, CA.START_POINT, *ORIGIN),
+    Sketcher.Constraint('Coincident', front_v, CA.END_POINT, extern_top, CA.START_POINT),
+    Sketcher.Constraint('Coincident', front_h, CA.END_POINT, front_slant, CA.START_POINT),
+    Sketcher.Constraint('PointOnObject', front_slant, CA.END_POINT, AxisId.Y),
+    Sketcher.Constraint('Coincident', front_arc, CA.START_POINT, extern_top, CA.START_POINT),
+    Sketcher.Constraint('Coincident', front_arc, CA.END_POINT, front_h, CA.END_POINT),
+    Sketcher.Constraint('PointOnObject', front_arc, CA.CENTER, AxisId.X),
+  ])
+
+  addExpressionConstraint(roof_front_s, "DistanceX", f'{Params.BREAST_OUTWARD_WIDTH}/2', front_h, CA.END_POINT, *ORIGIN)
+  addExpressionConstraint(roof_front_s, "Angle", "60 deg", front_h, CA.START_POINT, front_slant, CA.END_POINT)
+
+  roof_front_s.recompute()
 
   # Mirror the top and combine objects
   cap_top_mirror = doc.addObject('Part::Mirroring', 'Cap_Top_Mirror')
