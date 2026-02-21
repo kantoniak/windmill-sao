@@ -752,7 +752,7 @@ def createCap(doc):
   bearing_pad.setExpression('Length', f'{Params.CAP_BEARING_HEIGHT} - ({loft_height_expr})/2')
 
   # Create body for sketch-based top
-  cap_top = doc.addObject("App::Part", "Cap_Top")
+  cap_top = doc.addObject("App::DocumentObjectGroup", "Cap_Top")
 
   # Top geometry
   cap_floor_center = cap_top.newObject("PartDesign::Point", "Cap_Floor_Center")
@@ -1119,13 +1119,16 @@ def createCap(doc):
   roof_solid = cap_top.newObject("Part::Feature", "Roof_Solid")
   roof_solid.Shape = Part.makeSolid(Part.makeShell([s.Shape.Faces[0] for s in surfaces]))
 
-  # Mirror the top and combine objects
+  # Group and mirror cap top
+  cap_top_solids = doc.addObject('Part::Compound', 'Cap_Top_Solids')
+  cap_top_solids.Links = [cap_floor, roof_solid]
+
   cap_top_mirror = doc.addObject('Part::Mirroring', 'Cap_Top_Mirror')
-  cap_top_mirror.Source = cap_top
+  cap_top_mirror.Source = cap_top_solids
   cap_top_mirror.Normal = (1, 0, 0)
 
   cap = doc.addObject('Part::Compound', 'Cap')
-  cap.Links = [cap_bottom, cap_top, cap_top_mirror]
+  cap.Links = [cap_bottom, cap_top_solids, cap_top_mirror]
   return cap
 
 # Servo mounting tunnel
