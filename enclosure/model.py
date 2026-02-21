@@ -662,50 +662,6 @@ def createTower(doc):
   return tower_back_cut
 
 
-# Temporary cap (for tunnel testing)
-def createTempCap(doc):
-  # Create body for round bases
-  cap_bottom = doc.addObject("PartDesign::Body", "Cap_Bottom")
-
-  binder_tower_top_center = cap_bottom.newObject("PartDesign::SubShapeBinder", f"Binder_{tower_top_center.Label}")
-  binder_tower_top_center.Support = tower_top_center
-
-  bearing_cylinder = cap_bottom.newObject("PartDesign::AdditiveCylinder", "Cap_Bearing_Cylinder")
-  bearing_cylinder.AttachmentSupport = tower_top_center
-  bearing_cylinder.MapMode = 'Translate'
-  bearing_cylinder.Radius = 22
-  bearing_cylinder.setExpression('AttachmentOffset.Base.z', Params.CAP_BASE_HEIGHT)
-  bearing_cylinder.setExpression('Height', f'{Params.WINDSHAFT_TO_ROOF_TOP_VER}+{Params.WINDSHAFT_TO_CAP_BASE_VER}-{Params.CAP_BASE_HEIGHT}')
-
-  bearing_chamfer = cap_bottom.newObject("PartDesign::Chamfer", "Cap_Bearing_Chamfer")
-  bearing_chamfer.Base = (bearing_cylinder, "Edge2")
-  bearing_chamfer.Size = 4.5
-
-  base_cylinder = cap_bottom.newObject("PartDesign::AdditiveCylinder", "Cap_Base_Cylinder")
-  base_cylinder.AttachmentSupport = tower_top_center
-  base_cylinder.MapMode = 'Translate'
-  base_cylinder.setExpression('Radius', f'{Params.CAP_BASE_DIAM}/2')
-  base_cylinder.setExpression('Height', Params.CAP_BASE_HEIGHT)
-
-  # FIXME: Needed for split?
-  doc.RecomputesFrozen = False
-  doc.recompute()
-  doc.RecomputesFrozen = True
-
-  cap_slice = SplitFeatures.makeSlice(name='Cap_Slice')
-  cap_slice.Mode = 'Split'
-  cap_slice.Base = cap_bottom
-  cap_slice.Tools = [back_plane, windshaft_front_plane]
-  cap_slice.recompute()
-
-  cap_filter = CompoundFilter.makeCompoundFilter(name = 'Cap_Slice_Filter')
-  cap_filter.Base = cap_slice
-  cap_filter.FilterType = 'specific items'
-  cap_filter.items = '0'
-
-  return cap_filter
-
-
 # Cap
 def createCap(doc):
   # Create body for round bases
