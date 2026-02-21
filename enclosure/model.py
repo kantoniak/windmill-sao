@@ -516,16 +516,8 @@ def createTower(doc):
     tower_side_right_s, # Add first face again to add back surface
   ]
   surfaces = [toSurface(a, b) for a, b in pairwise(surface_sketches)]
-
-  def toSurfaceFromSketchEdges(sketch):
-    sketch.recompute()
-    edge_count = len(sketch.Shape.Edges)
-    surface = tower_surfaces.newObject("Surface::Filling", "Surface")
-    surface.BoundaryEdges = [(sketch, f"Edge{i}") for i in range(1, edge_count+1)]
-    return surface
-
-  surfaces.append(toSurfaceFromSketchEdges(tower_top_s))
-  surfaces.append(toSurfaceFromSketchEdges(tower_bottom_s))
+  surfaces.append(toSurfaceFromSketchEdges(tower_surfaces, tower_top_s))
+  surfaces.append(toSurfaceFromSketchEdges(tower_surfaces, tower_bottom_s))
 
   # Create tower solid
 
@@ -993,7 +985,7 @@ def createCap(doc):
 
   roof_front_s.recompute()
 
-  # Roof ridge
+  # Roof ridge (full loop)
   roof_ridge_s = cap_top.newObject("Sketcher::SketchObject", "Roof_Ridge")
   roof_ridge_s.AttachmentSupport = cap_floor_center
   roof_ridge_s.MapMode = "ObjectYZ"
@@ -1002,18 +994,28 @@ def createCap(doc):
   extern_ridge_a = addExternalGeomIndexed(roof_ridge_s, roof_ridge_a, "Point")
   extern_ridge_b = addExternalGeomIndexed(roof_ridge_s, roof_ridge_b, "Point")
   extern_ridge_rear = addExternalGeomIndexed(roof_ridge_s, rear_gable_top, "Point")
+  extern_breast_top = addExternalGeomIndexed(roof_ridge_s, breast_front_top, "Point")
 
-  (ridge_ta, ridge_ab, ridge_br) = roof_ridge_s.addGeometry([
+  (ridge_ta, ridge_ab, ridge_br, ridge_rb, ridge_bf, ridge_fb, ridge_bt) = roof_ridge_s.addGeometry([
     Part.LineSegment(App.Vector(0,0,0), App.Vector(1,0,0)),
     Part.LineSegment(App.Vector(1,0,0), App.Vector(2,0,0)),
     Part.LineSegment(App.Vector(2,0,0), App.Vector(3,0,0)),
+    Part.LineSegment(App.Vector(3,0,0), App.Vector(3,-1,0)),
+    Part.LineSegment(App.Vector(3,-1,0), App.Vector(-1, -1,0)),
+    Part.LineSegment(App.Vector(-1,-1,0), App.Vector(-1,0,0)),
+    Part.LineSegment(App.Vector(-1,0,0), App.Vector(0,0,0)),
   ], False)
 
-  roof_ridge_s.addConstraint(constrainCoincidentPath([ridge_ta, ridge_ab, ridge_br]) + [
+  roof_ridge_s.addConstraint(constrainCoincidentPath([ridge_ta, ridge_ab, ridge_br, ridge_rb, ridge_bf, ridge_fb, ridge_bt], True) + [
     Sketcher.Constraint('Coincident', ridge_ta, CA.START_POINT, extern_ridge_top, CA.START_POINT),
     Sketcher.Constraint('Coincident', ridge_ta, CA.END_POINT, extern_ridge_a, CA.START_POINT),
     Sketcher.Constraint('Coincident', ridge_ab, CA.END_POINT, extern_ridge_b, CA.START_POINT),
     Sketcher.Constraint('Coincident', ridge_br, CA.END_POINT, extern_ridge_rear, CA.START_POINT),
+    Sketcher.Constraint('Coincident', ridge_fb, CA.END_POINT, extern_breast_top, CA.START_POINT),
+    Sketcher.Constraint('PointOnObject', ridge_fb, CA.START_POINT, AxisId.X),
+    Sketcher.Constraint('Vertical', ridge_rb),
+    Sketcher.Constraint('Vertical', ridge_fb),
+    Sketcher.Constraint('Horizontal', ridge_bf),
   ])
   roof_ridge_s.recompute()
 
@@ -1044,29 +1046,37 @@ def createCap(doc):
 
   # Rear gable to roof ridge point B edge
   rear_gable_to_a_s = cap_top.newObject("Sketcher::SketchObject", "Rear_Gable_To_A")
-  rear_gable_to_a_s.AttachmentSupport = [(rear_gable_back_s, "Vertex2"), roof_ridge_b]
-  rear_gable_to_a_s.MapMode = "OYZ"
+  rear_gable_to_a_s.AttachmentSupport = [rear_gable_top, (rear_gable_back_s, "Vertex2"), roof_ridge_b]
+  rear_gable_to_a_s.MapMode = "OXY"
 
   rear_gable_extern_roof_ridge_b = addExternalGeomIndexed(rear_gable_to_a_s, roof_ridge_b, "Point")
   rear_gable_extern_gable_top_outwards = addExternalGeomIndexed(rear_gable_to_a_s, rear_gable_back_s, "Vertex2")
+  rear_gable_extern_gable_top = addExternalGeomIndexed(rear_gable_to_a_s, rear_gable_top, "Point")
 
-  rear_gable_to_a_edge = rear_gable_to_a_s.addGeometry(Part.LineSegment(App.Vector(0,0,0), App.Vector(1,0,0)), False)
-  rear_gable_to_a_s.addConstraint([
-    Sketcher.Constraint('Coincident', rear_gable_to_a_edge, CA.END_POINT, rear_gable_extern_gable_top_outwards, CA.START_POINT),
-    Sketcher.Constraint('Coincident', rear_gable_to_a_edge, CA.START_POINT, rear_gable_extern_roof_ridge_b, CA.START_POINT),
+  (rg_to_a_v, rg_to_a_s, rg_to_a_h) = rear_gable_to_a_s.addGeometry([
+    Part.LineSegment(App.Vector(0,0,0), App.Vector(1,0,0)),
+    Part.LineSegment(App.Vector(1,0,0), App.Vector(0,1,0)),
+    Part.LineSegment(App.Vector(0,1,0), App.Vector(0,0,0)),
+  ], False)
+  rear_gable_to_a_s.addConstraint(constrainCoincidentPath([rg_to_a_v, rg_to_a_s, rg_to_a_h], True) + [
+    Sketcher.Constraint('Coincident', rg_to_a_v, CA.END_POINT, rear_gable_extern_roof_ridge_b, CA.START_POINT),
+    Sketcher.Constraint('Coincident', rg_to_a_s, CA.END_POINT, rear_gable_extern_gable_top_outwards, CA.START_POINT),
+    Sketcher.Constraint('Coincident', rg_to_a_h, CA.END_POINT, rear_gable_extern_gable_top, CA.START_POINT),
   ])
   rear_gable_to_a_s.recompute()
 
-  # Roof side surface
-  print("Creating roof surface, this may take a while...")
+  # Roof surfaces
+  print("Creating roof surfaces, this may take a while...")
+  roof_surfaces = cap_top.newObject("App::DocumentObjectGroup", "Roof_Surfaces")
 
   # FIXME: Need to recompute doc to avoid TNP issues.
   doc.RecomputesFrozen = False
   doc.recompute()
   doc.RecomputesFrozen = True
 
-  roof_surface_side = cap_top.newObject("Surface::Filling", "Roof_Surface_Side")
-  roof_surface_side.BoundaryEdges = [
+  # Roof side surface
+  surface_roof_side = roof_surfaces.newObject("Surface::Filling", "Surface_Roof_Side")
+  surface_roof_side.BoundaryEdges = [
     (floor_s, "Edge2"),
     (floor_s, "Edge3"),
     (floor_s, "Edge4"),
@@ -1075,19 +1085,39 @@ def createCap(doc):
     (floor_s, "Edge7"),
     (floor_s, "Edge8"),
     (rear_gable_back_s, "Edge2"),
-    (rear_gable_to_a_s, "Edge1"),
+    (rear_gable_to_a_s, "Edge2"),
     (roof_ridge_s, "Edge2"),
     (roof_ridge_s, "Edge1"),
     (roof_front_s, "Edge2"),
     (breast_front_s, "Edge2"),
   ]
-  roof_surface_side.UnboundEdges = [
+  surface_roof_side.UnboundEdges = [
     (rib_b_s, "Edge1"),
     (rib_a_s, "Edge1"),
   ]
-  roof_surface_side.Degree = 2
-  roof_surface_side.Iterations = 2
-  roof_surface_side.recompute()
+  surface_roof_side.Degree = 2
+  surface_roof_side.Iterations = 2
+  surface_roof_side.recompute()
+
+  # Supporting flat faces
+  roof_sketches = [
+    breast_front_s,
+    roof_front_s,
+    roof_ridge_s,
+    rear_gable_to_a_s,
+    rear_gable_back_s,
+    floor_s,
+  ]
+  surfaces = [toSurfaceFromSketchEdges(roof_surfaces, s) for s in roof_sketches]
+  surfaces.append(surface_roof_side)
+
+  # Roof solid
+  doc.RecomputesFrozen = False
+  doc.recompute()
+  doc.RecomputesFrozen = True
+
+  roof_solid = cap_top.newObject("Part::Feature", "Roof_Solid")
+  roof_solid.Shape = Part.makeSolid(Part.makeShell([s.Shape.Faces[0] for s in surfaces]))
 
   # Mirror the top and combine objects
   cap_top_mirror = doc.addObject('Part::Mirroring', 'Cap_Top_Mirror')

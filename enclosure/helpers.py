@@ -132,3 +132,10 @@ def addOctagon(sketch):
     [Sketcher.Constraint('Equal', lines[0], l) for l in lines[1:]])
 
   return circle, lines
+
+def toSurfaceFromSketchEdges(parent, sketch):
+  sketch.recompute()
+  edge_count = len(sketch.Shape.Edges)
+  surface = parent.newObject("Surface::Filling", f"Surface_{sketch.Label}")
+  surface.BoundaryEdges = [(sketch, f"Edge{i}") for i in range(1, edge_count+1)]
+  return surface
