@@ -466,7 +466,7 @@ def createTower(doc):
   extern_spline_left = addExternalGeomIndexed(tower_back_s, tower_side_left_s, 'Edge1')
   extern_spline_right = addExternalGeomIndexed(tower_back_s, tower_side_right_s, 'Edge1')
 
-  # FIXME: BSpline control points are not availale in FreeCAD v1.0 (see above).
+  # FIXME: BSpline control points are not available in FreeCAD v1.0 (see above).
   back_spline_left_control = App.Vector(
     -side_spline_control_point_pos.x,
     side_spline_control_point_pos.y,
@@ -1017,21 +1017,72 @@ def createCap(doc):
   ])
   roof_ridge_s.recompute()
 
-  # (WIP) Roof surfaces
+  # Rear gable
+  rear_gable_back_s = cap_top.newObject("Sketcher::SketchObject", "Rear_Gable_Back")
+  rear_gable_back_s.AttachmentSupport = rear_gable_top
+  rear_gable_back_s.MapMode = "ObjectXZ"
+
+  rear_gable_extern_cap_floor_center = addExternalGeomIndexed(rear_gable_back_s, cap_floor_center, "Point")
+
+  (rear_g1, rear_g2, rear_g3, rear_g4) = rear_gable_back_s.addGeometry([
+    Part.LineSegment(App.Vector(0, 0, 0),  App.Vector(-1, 0, 0)),   # horizontal left
+    Part.LineSegment(App.Vector(-1, 0, 0), App.Vector(-1, -1, 0)),  # vertical down
+    Part.LineSegment(App.Vector(-1, -1, 0), App.Vector(0, -1, 0)),  # horizontal right
+    Part.LineSegment(App.Vector(0, -1, 0),  App.Vector(0, 0, 0)),   # vertical up
+  ], False)
+
+  rear_gable_back_s.addConstraint(constrainCoincidentPath([rear_g1, rear_g2, rear_g3, rear_g4]) + [
+    Sketcher.Constraint("Coincident", rear_g1, CA.START_POINT, *ORIGIN),
+    Sketcher.Constraint("Coincident", rear_g4, CA.START_POINT, rear_gable_extern_cap_floor_center, CA.START_POINT),
+    Sketcher.Constraint("Coincident", rear_g4, CA.END_POINT, *ORIGIN),
+    Sketcher.Constraint("Horizontal", rear_g1),
+    Sketcher.Constraint("Horizontal", rear_g3),
+    Sketcher.Constraint("Vertical",   rear_g2),
+  ])
+  addExpressionConstraint(rear_gable_back_s, "DistanceX", f'{Params.REAR_GABLE_OUTWARD_WIDTH}/2', rear_g2, CA.END_POINT, *ORIGIN)
+  rear_gable_back_s.recompute()
+
+  # Rear gable to roof ridge point B edge
+  rear_gable_to_a_s = cap_top.newObject("Sketcher::SketchObject", "Rear_Gable_To_A")
+  rear_gable_to_a_s.AttachmentSupport = [(rear_gable_back_s, "Vertex2"), roof_ridge_b]
+  rear_gable_to_a_s.MapMode = "OYZ"
+
+  rear_gable_extern_roof_ridge_b = addExternalGeomIndexed(rear_gable_to_a_s, roof_ridge_b, "Point")
+  rear_gable_extern_gable_top_outwards = addExternalGeomIndexed(rear_gable_to_a_s, rear_gable_back_s, "Vertex2")
+
+  rear_gable_to_a_edge = rear_gable_to_a_s.addGeometry(Part.LineSegment(App.Vector(0,0,0), App.Vector(1,0,0)), False)
+  rear_gable_to_a_s.addConstraint([
+    Sketcher.Constraint('Coincident', rear_gable_to_a_edge, CA.END_POINT, rear_gable_extern_gable_top_outwards, CA.START_POINT),
+    Sketcher.Constraint('Coincident', rear_gable_to_a_edge, CA.START_POINT, rear_gable_extern_roof_ridge_b, CA.START_POINT),
+  ])
+  rear_gable_to_a_s.recompute()
+
+  # Roof side surface
   print("Creating roof surface, this may take a while...")
+
+  # FIXME: Need to recompute doc to avoid TNP issues.
+  doc.RecomputesFrozen = False
+  doc.recompute()
+  doc.RecomputesFrozen = True
+
   roof_surface_side = cap_top.newObject("Surface::Filling", "Roof_Surface_Side")
   roof_surface_side.BoundaryEdges = [
-    (rib_b_s, "Edge1"),
-    (roof_ridge_s, "Edge2"),
-    (roof_ridge_s, "Edge1"),
-    (roof_front_s, "Edge2"),
-    (breast_front_s, "Edge2"),
     (floor_s, "Edge2"),
     (floor_s, "Edge3"),
     (floor_s, "Edge4"),
     (floor_s, "Edge5"),
+    (floor_s, "Edge6"),
+    (floor_s, "Edge7"),
+    (floor_s, "Edge8"),
+    (rear_gable_back_s, "Edge2"),
+    (rear_gable_to_a_s, "Edge1"),
+    (roof_ridge_s, "Edge2"),
+    (roof_ridge_s, "Edge1"),
+    (roof_front_s, "Edge2"),
+    (breast_front_s, "Edge2"),
   ]
   roof_surface_side.UnboundEdges = [
+    (rib_b_s, "Edge1"),
     (rib_a_s, "Edge1"),
   ]
   roof_surface_side.Degree = 2
