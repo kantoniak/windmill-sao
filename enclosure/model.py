@@ -59,6 +59,7 @@ Params = initParams(doc, {
   'CAP_BASE_TO_ROOF_B_HOR': '5.5 mm',
   'CAP_BASE_TO_ROOF_B_VER': '26 mm',
   'CAP_BASE_TO_REAR_GABLE_TOP_VER': '15 mm',
+  'ROOF_TOP_TO_FRONT_PLATE_TOP_VER': '10 mm',
 })
 doc.RecomputesFrozen = True
 
@@ -1066,6 +1067,7 @@ def createCap(doc):
   ]
   surfaces = [toSurfaceFromSketchEdges(roof_surfaces, s) for s in roof_sketches]
   surfaces.append(surface_roof_side)
+  print("Created roof surfaces.")
 
   # Roof solid
   doc.RecomputesFrozen = False
@@ -1075,9 +1077,159 @@ def createCap(doc):
   roof_solid = cap_top.newObject("Part::Feature", "Roof_Solid")
   roof_solid.Shape = Part.makeSolid(Part.makeShell([s.Shape.Faces[0] for s in surfaces]))
 
+  # Cap forward compound
+  cap_forward_group = cap_top.newObject("App::DocumentObjectGroup", "Cap_Forward_Group")
+
+  cap_forward = cap_forward_group.newObject("PartDesign::Body", "Cap_Forward")
+  binder_roof_ridge_top = cap_forward.newObject("PartDesign::SubShapeBinder", f"Binder_{roof_ridge_top.Label}")
+  binder_roof_ridge_top.Support = roof_ridge_top
+  binder_roof_ridge_top.recompute()
+
+  # Front view
+  cap_forward_s = cap_forward.newObject("Sketcher::SketchObject", "Cap_Forward_Front")
+  cap_forward_s.AttachmentSupport = [breast_front_top, binder_roof_ridge_top]
+  cap_forward_s.MapMode = "OYZ"
+
+  cap_forward_extern_top = addExternalGeomIndexed(cap_forward_s, binder_roof_ridge_top, "Vertex1")
+
+  (cfwd_h, cfwd_v, cfwd_arc) = cap_forward_s.addGeometry([
+    Part.LineSegment(App.Vector(0,0,0), App.Vector(-1,0,0)),
+    Part.LineSegment(App.Vector(0,0,0), App.Vector(0,1,0)),
+    Part.ArcOfCircle(Part.Circle(App.Vector(5,0,0), App.Vector(0,0,1), 1), math.pi/2, math.pi),
+  ], False)
+
+  cap_forward_s.addConstraint([
+    Sketcher.Constraint('Coincident', cfwd_h, CA.START_POINT, *ORIGIN),
+    Sketcher.Constraint('Horizontal', cfwd_h),
+    Sketcher.Constraint('Coincident', cfwd_v, CA.START_POINT, *ORIGIN),
+    Sketcher.Constraint('Coincident', cfwd_v, CA.END_POINT, cap_forward_extern_top, CA.START_POINT),
+    Sketcher.Constraint('Coincident', cfwd_arc, CA.START_POINT, cap_forward_extern_top, CA.START_POINT),
+    Sketcher.Constraint('Coincident', cfwd_arc, CA.END_POINT, cfwd_h, CA.END_POINT),
+    Sketcher.Constraint('PointOnObject', cfwd_arc, CA.CENTER, AxisId.X),
+  ])
+
+  addExpressionConstraint(cap_forward_s, "DistanceX", f'{Params.BREAST_OUTWARD_WIDTH}/2', cfwd_h, CA.END_POINT, *ORIGIN)
+  cap_forward_s.recompute()
+
+  # Side view
+  cap_forward_side_s = cap_forward.newObject("Sketcher::SketchObject", "Cap_Forward_Side")
+  cap_forward_side_s.AttachmentSupport = [breast_front_top, binder_roof_ridge_top]
+  cap_forward_side_s.MapMode = "ObjectYZ"
+
+  cap_forward_extern_top = addExternalGeomIndexed(cap_forward_side_s, binder_roof_ridge_top, "Vertex1")
+
+  (cfwds_b, cfwds_t) = cap_forward_side_s.addGeometry([
+    Part.LineSegment(App.Vector(0,0,0), App.Vector(0,1,0)),
+    Part.LineSegment(App.Vector(0,1,0), App.Vector(0,2,0)),
+  ], False)
+
+  cap_forward_side_s.addConstraint([
+    Sketcher.Constraint('Coincident', cfwds_b, CA.START_POINT, *ORIGIN),
+    Sketcher.Constraint('Coincident', cfwds_b, CA.END_POINT, cfwds_t, CA.START_POINT),
+    Sketcher.Constraint('Coincident', cfwds_t, CA.END_POINT, cap_forward_extern_top, CA.START_POINT),
+  ])
+
+  addExpressionConstraint(cap_forward_side_s, "DistanceY", Params.ROOF_TOP_TO_FRONT_PLATE_TOP_VER, cfwds_t, CA.START_POINT, cap_forward_extern_top, CA.START_POINT)
+  addExpressionConstraint(cap_forward_side_s, "Angle", Params.WINDSHAFT_TILT, cfwds_b, CA.START_POINT, AxisId.Y, CA.START_POINT)
+  cap_forward_side_s.recompute()
+
+  # Last success
+
+  # Pad and slice shape
+  cap_forward_pad = cap_forward.newObject('PartDesign::Pad', 'Cap_Forward_Pad')
+  cap_forward_pad.Profile = cap_forward_s
+  cap_forward_pad.Type = 'Length'
+  cap_forward_pad.Length = 5
+
+  cap_forward_plane_b = cap_forward_group.newObject("PartDesign::Plane", "Cap_Forward_Plane_Bottom")
+  cap_forward_plane_b.AttachmentSupport = [breast_front_top, (cap_forward_side_s, "Vertex2")]
+  cap_forward_plane_b.MapMode = 'OXY'
+
+  cap_forward_plane_t = cap_forward_group.newObject("PartDesign::Plane", "Cap_Forward_Plane_Top")
+  cap_forward_plane_t.AttachmentSupport = [(cap_forward_side_s, "Vertex2"), roof_ridge_top]
+  cap_forward_plane_t.MapMode = 'OXY'
+
+  doc.RecomputesFrozen = False
+  doc.recompute()
+  doc.RecomputesFrozen = True
+
+  cap_forward_slice_b = SplitFeatures.makeSlice(name='Cap_Forward_Slice_Bottom')
+  cap_forward_group.addObject(cap_forward_slice_b)
+  cap_forward_slice_b.Base = cap_forward
+  cap_forward_slice_b.Tools = cap_forward_plane_b
+  cap_forward_slice_b.Mode = 'Split'
+  cap_forward_slice_b.recompute()
+
+  cap_forward_slice_b_result = CompoundFilter.makeCompoundFilter("Cap_Forward_Slice_Bottom_Result", cap_forward_group)
+  cap_forward_slice_b_result.Base = cap_forward_slice_b
+  cap_forward_slice_b_result.FilterType = "specific items"
+  cap_forward_slice_b_result.items = "1"
+
+  doc.RecomputesFrozen = False
+  doc.recompute()
+  doc.RecomputesFrozen = True
+
+  cap_forward_slice_t = SplitFeatures.makeSlice(name='Cap_Forward_Slice_Top')
+  cap_forward_group.addObject(cap_forward_slice_t)
+  cap_forward_slice_t.Base = cap_forward_slice_b_result
+  cap_forward_slice_t.Tools = cap_forward_plane_t
+  cap_forward_slice_t.Mode = 'Split'
+  cap_forward_slice_t.recompute()
+
+  cap_forward_slice_t_result = CompoundFilter.makeCompoundFilter("Cap_Forward_Slice_Top_Result", cap_forward_group)
+  cap_forward_slice_t_result.Base = cap_forward_slice_t
+  cap_forward_slice_t_result.FilterType = "specific items"
+  cap_forward_slice_t_result.items = "0"
+
+  # Roof shingles
+  cap_forward_shingle = cap_forward_group.newObject("PartDesign::Body", "Cap_Forward_Shingle")
+
+  # Side shingle view
+  cap_forward_shingle_side_s = cap_forward_shingle.newObject("Sketcher::SketchObject", "Cap_Forward_Shingle_Side")
+  cap_forward_shingle_side_s.AttachmentSupport = [(cap_forward_side_s, "Vertex2"), roof_ridge_top, breast_front_top]
+  cap_forward_shingle_side_s.MapMode = "OYX"
+
+  (cfwdsh_out, cfwdsh_back, cfwdsh_in) = cap_forward_shingle_side_s.addGeometry([
+    Part.LineSegment(App.Vector(0,0,0), App.Vector(0,1,0)),
+    Part.LineSegment(App.Vector(0,1,0), App.Vector(1,1,0)),
+    Part.LineSegment(App.Vector(1,1,0), App.Vector(0,0,0)),
+  ], False)
+
+  cap_forward_shingle_side_s.addConstraint(constrainCoincidentPath([cfwdsh_out, cfwdsh_back, cfwdsh_in], True) + [
+    Sketcher.Constraint('Coincident', cfwdsh_out, CA.START_POINT, *ORIGIN),
+    Sketcher.Constraint('Vertical', cfwdsh_out),
+  ])
+  addExpressionConstraint(cap_forward_shingle_side_s, "Distance", f'{cap_forward_side_s.Label}.Shape.Edges[1].Length / 7', cfwdsh_out, CA.START_POINT, cfwdsh_out, CA.END_POINT)
+  addExpressionConstraint(cap_forward_shingle_side_s, "Angle", "6.5 deg", cfwdsh_in, CA.START_POINT, cfwdsh_out, CA.END_POINT)
+  addExpressionConstraint(cap_forward_shingle_side_s, "Angle", "90 deg", cfwdsh_back, CA.START_POINT, cfwdsh_in, CA.END_POINT)
+  cap_forward_shingle_side_s.recompute()
+
+  # Pad
+  cap_forward_shingle_pad = cap_forward_shingle.newObject('PartDesign::Pad', 'Cap_Forward_Shingle_Pad')
+  cap_forward_shingle_pad.Profile = cap_forward_shingle_side_s
+  cap_forward_shingle_pad.Type = 'Length'
+  cap_forward_shingle_pad.Reversed = True
+  cap_forward_shingle_pad.setExpression('Length', f'{Params.BREAST_OUTWARD_WIDTH}/2')
+
+  # Path array
+  cap_forward_shingles = Draft.make_path_array(
+    base_object = cap_forward_shingle_pad,
+    path_object = cap_forward_side_s,
+    count = 6,
+    subelements = ["Edge2"],
+    end_offset = 1)
+  cap_forward_shingles.setExpression('EndOffset', f'{cap_forward_side_s.Label}.Shape.Edges[1].Length * 2 / 7')
+  cap_forward_shingles.Label = "Cap_Forward_Shingles"
+  cap_forward_group.addObject(cap_forward_shingles)
+
+  # Cut shingle array from cap forward assembly
+  cap_forward_shingle_cut = cap_forward_group.newObject("Part::Cut", "Cap_Forward_Shingle_Cut")
+  cap_forward_shingle_cut.Base = cap_forward_slice_t_result
+  cap_forward_shingle_cut.Tool = cap_forward_shingles
+
   # Group and mirror cap top
   cap_top_solids = doc.addObject('Part::Compound', 'Cap_Top_Solids')
-  cap_top_solids.Links = [cap_floor, roof_solid]
+  cap_top_solids.Links = [cap_floor, roof_solid, cap_forward_shingle_cut]
 
   cap_top_mirror = doc.addObject('Part::Mirroring', 'Cap_Top_Mirror')
   cap_top_mirror.Source = cap_top_solids
@@ -1185,16 +1337,20 @@ def createServoTunnel(doc):
   front_cylinder.Height = 100
   front_cylinder.setExpression('Radius', f'4 mm + {Params.PLA_EXPANSION}')
 
+  return servo_tunnel
+
 
 tower = createTower(doc)
 cap = createCap(doc)
 tunnel = createServoTunnel(doc)
 
 # Combine windmill components
-windmill_base = doc.addObject('Part::Compound', 'Windmill_Solids')
-windmill_base.Links = [tower, cap]
-windmill = BOPFeatures(App.activeDocument()).make_cut(["Windmill_Solids", "Servo_Tunnel"])
-windmill.Label = "Windmill"
+windmill_solids = doc.addObject('Part::Compound', 'Windmill_Solids')
+windmill_solids.Links = [tower, cap]
+
+windmill = doc.addObject("Part::Cut", "Windmill")
+windmill.Base = windmill_solids
+windmill.Tool = tunnel
 
 doc.RecomputesFrozen = False
 doc.recompute()

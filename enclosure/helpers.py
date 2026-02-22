@@ -56,7 +56,7 @@ def addExternalGeomIndexed(sketch, obj, subName: str) -> int:
 def addExpressionConstraint(sketch, name: str, expr: str, *constraint_args) -> int:
   args = (name,) + tuple(constraint_args) + (1,)
   constraint_id = sketch.addConstraint(Sketcher.Constraint(*args))
-  print(f'Constraints[{constraint_id}]: {expr}')
+  print(f'{sketch.Label}.Constraints[{constraint_id}]: {expr}')
   sketch.setExpression(f'Constraints[{constraint_id}]', expr)
   return int(constraint_id)
 
