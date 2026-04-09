@@ -665,8 +665,10 @@ def createTower(doc):
 
 # Cap
 def createCap(doc):
+  cap_objects = doc.addObject("App::DocumentObjectGroup", "Cap_Objects")
+
   # Create body for round bases
-  cap_bottom = doc.addObject("PartDesign::Body", "Cap_Bottom")
+  cap_bottom = cap_objects.newObject("PartDesign::Body", "Cap_Bottom")
 
   binder_tower_top_center = cap_bottom.newObject("PartDesign::SubShapeBinder", f"Binder_{tower_top_center.Label}")
   binder_tower_top_center.Support = tower_top_center
@@ -709,7 +711,7 @@ def createCap(doc):
   bearing_pad.setExpression('Length', f'{Params.CAP_BEARING_HEIGHT} - ({loft_height_expr})/2')
 
   # Create body for sketch-based top
-  cap_top = doc.addObject("App::DocumentObjectGroup", "Cap_Top")
+  cap_top = cap_objects.newObject("App::DocumentObjectGroup", "Cap_Top")
 
   # Top geometry
   cap_floor_center = cap_top.newObject("PartDesign::Point", "Cap_Floor_Center")
@@ -1133,8 +1135,6 @@ def createCap(doc):
   addExpressionConstraint(cap_forward_side_s, "Angle", Params.WINDSHAFT_TILT, cfwds_b, CA.START_POINT, AxisId.Y, CA.START_POINT)
   cap_forward_side_s.recompute()
 
-  # Last success
-
   # Pad and slice shape
   cap_forward_pad = cap_forward.newObject('PartDesign::Pad', 'Cap_Forward_Pad')
   cap_forward_pad.Profile = cap_forward_s
@@ -1227,17 +1227,41 @@ def createCap(doc):
   cap_forward_shingle_cut.Base = cap_forward_slice_t_result
   cap_forward_shingle_cut.Tool = cap_forward_shingles
 
+  # Slice away back of the cap
+  doc.RecomputesFrozen = False
+  doc.recompute()
+  doc.RecomputesFrozen = True
+
+  def sliceWithBackPlane(base, parent, item_index):
+    slice = SplitFeatures.makeSlice(f"{base.Label}_Slice")
+    parent.addObject(slice)
+    slice.Base = base
+    slice.Tools = back_plane
+    slice.Mode = 'Split'
+    slice.recompute()
+
+    slice_result = CompoundFilter.makeCompoundFilter(f"{base.Label}_Slice_Result", parent)
+    slice_result.Base = slice
+    slice_result.FilterType = "specific items"
+    slice_result.items = "0"
+    return slice_result
+
+  cap_bottom_slice_result = sliceWithBackPlane(cap_bottom, cap_objects, 0)
+  cap_floor_slice_result = sliceWithBackPlane(cap_floor, cap_objects, 0)
+  roof_solid_slice_result = sliceWithBackPlane(roof_solid, cap_objects, 0)
+
   # Group and mirror cap top
-  cap_top_solids = doc.addObject('Part::Compound', 'Cap_Top_Solids')
-  cap_top_solids.Links = [cap_floor, roof_solid, cap_forward_shingle_cut]
+  cap_top_mirrored = doc.addObject('Part::Compound', 'Cap_Top_Mirrored')
+  cap_top_mirrored.Links = [cap_floor_slice_result, roof_solid_slice_result, cap_forward_shingle_cut]
 
   cap_top_mirror = doc.addObject('Part::Mirroring', 'Cap_Top_Mirror')
-  cap_top_mirror.Source = cap_top_solids
+  cap_top_mirror.Source = cap_top_mirrored
   cap_top_mirror.Normal = (1, 0, 0)
 
-  cap = doc.addObject('Part::Compound', 'Cap')
-  cap.Links = [cap_bottom, cap_top_solids, cap_top_mirror]
-  return cap
+  cap_solid = doc.addObject('Part::Compound', 'Cap_Solid')
+  cap_solid.Links = [cap_bottom_slice_result, cap_top_mirrored, cap_top_mirror]
+
+  return cap_solid
 
 # Servo mounting tunnel
 def createServoTunnel(doc):
