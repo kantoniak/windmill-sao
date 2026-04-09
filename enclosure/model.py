@@ -1261,7 +1261,38 @@ def createCap(doc):
   cap_solid = doc.addObject('Part::Compound', 'Cap_Solid')
   cap_solid.Links = [cap_bottom_slice_result, cap_top_mirrored, cap_top_mirror]
 
-  return cap_solid
+  # Cut away a triangular shape to provide support for 3D printing
+  cap_back = doc.addObject("PartDesign::Body", "Cap_Back")
+
+  cap_back_s = cap_back.newObject("Sketcher::SketchObject", "Cap_Back_Sketch")
+  cap_back_s.AttachmentSupport = tower_top_back
+  cap_back_s.MapMode = "ObjectXZ"
+  cap_back_s.MapReversed = True
+
+  (bc_b, bc_tr, bc_tl) = cap_back_s.addGeometry([
+    Part.LineSegment(App.Vector(-1,0,0), App.Vector(1,0,0)),
+    Part.LineSegment(App.Vector(1,0,0), App.Vector(0,1,0)),
+    Part.LineSegment(App.Vector(0,1,0), App.Vector(-1,0,0))], False)
+
+  cap_back_s.addConstraint(constrainCoincidentPath([bc_b, bc_tr, bc_tl], True) + [
+    Sketcher.Constraint('Symmetric', bc_b, CA.START_POINT, bc_b, CA.END_POINT, AxisId.Y),
+    Sketcher.Constraint('PointOnObject', bc_b, CA.START_POINT, AxisId.X),
+    Sketcher.Constraint('PointOnObject', bc_tl, CA.START_POINT, AxisId.Y),
+    Sketcher.Constraint('Angle', bc_tr, CA.END_POINT, bc_b, CA.START_POINT, math.pi / 4)
+  ])
+  addExpressionConstraint(cap_back_s, "DistanceX", f'{Params.TOWER_TOP_WIDTH} + (<<Tower_Back_Offset>>.Value * 2 mm)', bc_b, CA.START_POINT, bc_b, CA.END_POINT)
+  cap_back_s.recompute()
+
+  cap_back_cut_pad = cap_back.newObject('PartDesign::Pad', 'Cap_Back_Pad')
+  cap_back_cut_pad.Profile = cap_back_s
+  cap_back_cut_pad.Reversed = True
+  cap_back_cut_pad.setExpression('Length', f'<<Tower_Back_Offset_Pad>>.Length')
+
+  cap = doc.addObject("Part::Cut", "Cap")
+  cap.Base = cap_solid
+  cap.Tool = cap_back
+
+  return cap
 
 # Servo mounting tunnel
 def createServoTunnel(doc):
