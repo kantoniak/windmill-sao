@@ -45,6 +45,8 @@ Params = initParams(doc, {
   'PCB_MOUNTING_HOLE_DIAM': '2 mm',
   'PCB_MOUNTING_HOLE_X': '11.3 mm',
   'PCB_MOUNTING_HOLE_Y': '4.2 mm',
+  'HEAT_INSERT_HOLE_DIAM': '3.2 mm',
+  'HEAT_INSERT_HOLE_DEPTH': '15 mm',
   'CAP_BASE_DIAM': '35 mm',
   'CAP_BASE_HEIGHT': '1.25 mm',
   'CAP_BEARING_DIAM': '36.5 mm',
@@ -531,8 +533,8 @@ def createTower(doc):
   doc.recompute()
   doc.RecomputesFrozen = True
 
-  solid_obj = doc.addObject("Part::Feature", "Tower_Solid")
-  solid_obj.Shape = Part.makeSolid(Part.makeShell([s.Shape.Faces[0] for s in surfaces]))
+  tower_solid = doc.addObject("Part::Feature", "Tower_Solid")
+  tower_solid.Shape = Part.makeSolid(Part.makeShell([s.Shape.Faces[0] for s in surfaces]))
 
   # Create tower base (not source accurate, just for visual finish at the bottom)
   tower_base = doc.addObject("PartDesign::Body", "Tower_Base")
@@ -545,7 +547,7 @@ def createTower(doc):
   tower_base_pad.Length = 4
 
   tower_fuse = doc.addObject("Part::MultiFuse", "Tower_Fuse")
-  tower_fuse.Shapes = [solid_obj, tower_base]
+  tower_fuse.Shapes = [tower_solid, tower_base]
 
   # Cut the towers backside
   tower_back_offset = doc.addObject("Part::Offset2D", "Tower_Back_Offset")
@@ -661,6 +663,25 @@ def createTower(doc):
     sketch.recompute()
     return sketch
 
+  # Add heat insert holes
+  tower_heat_insert = doc.addObject("PartDesign::Body", "Tower_Heat_Insert")
+  tower_heat_insert_s = createPCBMountingHoleSketch('Heat_Insert_Hole', tower_heat_insert, f'{Params.HEAT_INSERT_HOLE_DIAM}')
+  tower_heat_insert_hole = tower_heat_insert.newObject("PartDesign::Pocket", "Heat_Insert_Hole_Pocket")
+  tower_heat_insert_hole.Profile = tower_heat_insert_s
+  tower_heat_insert_hole.Type = 'Length'
+  tower_heat_insert_hole.setExpression('Length', f'{Params.HEAT_INSERT_HOLE_DEPTH} + {Params.PCB_THICKNESS} + {Params.PLA_EXPANSION}')
+
+  tower_heat_insert_mirror = doc.addObject('Part::Mirroring', 'Tower_Heat_Insert_Mirror')
+  tower_heat_insert_mirror.Source = tower_heat_insert
+  tower_heat_insert_mirror.Normal = (1, 0, 0)
+
+  tower_heat_insert_holes = doc.addObject('Part::Compound', 'Tower_Heat_Insert_Holes')
+  tower_heat_insert_holes.Links = [tower_heat_insert, tower_heat_insert_mirror]
+
+  tower = doc.addObject("Part::Cut", "Tower")
+  tower.Base = tower_back_cut
+  tower.Tool = tower_heat_insert_holes
+
   # Add PCB mounting holes
   pcb_mounting_hole_s = createPCBMountingHoleSketch('PCB_Mounting_Hole', pcb, f'{Params.PCB_MOUNTING_HOLE_DIAM}')
   pcb_mounting_hole = pcb.newObject("PartDesign::Pocket", "PCB_Mounting_Hole_Pocket")
@@ -710,7 +731,7 @@ def createTower(doc):
   doc.RecomputesFrozen = True
   exportDXF(pcb, "exports/pcb-outline.dxf")
 
-  return tower_back_cut
+  return tower
 
 
 # Cap
