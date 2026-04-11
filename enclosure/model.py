@@ -42,6 +42,9 @@ Params = initParams(doc, {
   'PCB_THICKNESS': '1.6 mm',
   'PCB_OUTLINE_TOLERANCE': '0.2 mm',
   'PCB_SERVO_CLEARANCE': '1 mm',
+  'PCB_MOUNTING_HOLE_DIAM': '2 mm',
+  'PCB_MOUNTING_HOLE_X': '11.3 mm',
+  'PCB_MOUNTING_HOLE_Y': '4.2 mm',
   'CAP_BASE_DIAM': '35 mm',
   'CAP_BASE_HEIGHT': '1.25 mm',
   'CAP_BEARING_DIAM': '36.5 mm',
@@ -578,19 +581,19 @@ def createTower(doc):
   pcb_offset.Source = tower_back_s
   pcb_offset.setExpression("Value", f'-({Params.OUTER_WALL_THICKNESS} + {Params.PCB_OUTLINE_TOLERANCE})')
 
-  pcb_base = doc.addObject("PartDesign::Body", "PCB_Base")
-  binder_pcb_offset = pcb_base.newObject("PartDesign::ShapeBinder", f"Binder_{pcb_offset.Label}")
+  pcb = doc.addObject("PartDesign::Body", "PCB")
+  binder_pcb_offset = pcb.newObject("PartDesign::ShapeBinder", f"Binder_{pcb_offset.Label}")
   binder_pcb_offset.Support = pcb_offset
 
-  pcb_pad = pcb_base.newObject("PartDesign::Pad", "PCB_Pad")
+  pcb_pad = pcb.newObject("PartDesign::Pad", "PCB_Pad")
   pcb_pad.Profile = binder_pcb_offset
   pcb_pad.Reversed = True
   pcb_pad.setExpression('Length', f'{Params.PCB_THICKNESS}')
 
-  binder_pcb_tunnel_container = pcb_base.newObject("PartDesign::ShapeBinder", f"Binder_{tower_tunnelb_s.Name}")
+  binder_pcb_tunnel_container = pcb.newObject("PartDesign::ShapeBinder", f"Binder_{tower_tunnelb_s.Name}")
   binder_pcb_tunnel_container.Support = tower_tunnelb_s
 
-  pcb_pocket = pcb_base.newObject("PartDesign::Pocket", "PCB_Pocket")
+  pcb_pocket = pcb.newObject("PartDesign::Pocket", "PCB_Pocket")
   pcb_pocket.Profile = binder_pcb_tunnel_container
   pcb_pocket.Type = 1
   pcb_pocket.Reversed = True
@@ -600,7 +603,7 @@ def createTower(doc):
   doc.recompute()
   doc.RecomputesFrozen = True
 
-  pcb_details_s = pcb_base.newObject("Sketcher::SketchObject", "PCB_Details")
+  pcb_details_s = pcb.newObject("Sketcher::SketchObject", "PCB_Details")
   pcb_details_s.AttachmentSupport = tower_top_back
   pcb_details_s.MapMode = 'ObjectXZ'
   pcb_details_s.setExpression('AttachmentOffset.Rotation.Angle', '180 deg')
@@ -638,10 +641,36 @@ def createTower(doc):
   addExpressionConstraint(pcb_details_s, 'Radius', f'{Params.PCB_SERVO_CLEARANCE} + {Params.PCB_OUTLINE_TOLERANCE}', detail_bl)
   pcb_details_s.recompute()
 
-  pcb_detailed = pcb_base.newObject("PartDesign::Pocket", "PCB_Detailed")
+  pcb_detailed = pcb.newObject("PartDesign::Pocket", "PCB_Detailed")
   pcb_detailed.Profile = pcb_details_s
   pcb_detailed.Type = 1
-  pcb_detailed.recompute()
+
+  def createPCBMountingHoleSketch(name: str, parent, diameter_expr: str):
+    sketch = parent.newObject("Sketcher::SketchObject", name)
+    sketch.AttachmentSupport = tower_top_back
+    sketch.MapMode = 'ObjectXZ'
+    sketch.MapReversed = True
+
+    (insert_c,) = sketch.addGeometry([
+      Part.Circle(App.Vector(), App.Vector(0, 0, 1), 1)
+    ], False)
+
+    addExpressionConstraint(sketch, 'Diameter', diameter_expr, insert_c)
+    addExpressionConstraint(sketch, 'DistanceX', f'{Params.PCB_MOUNTING_HOLE_X}', insert_c, CA.CENTER, *ORIGIN)
+    addExpressionConstraint(sketch, 'DistanceY', f'{Params.PCB_MOUNTING_HOLE_Y}', insert_c, CA.CENTER, *ORIGIN)
+    sketch.recompute()
+    return sketch
+
+  # Add PCB mounting holes
+  pcb_mounting_hole_s = createPCBMountingHoleSketch('PCB_Mounting_Hole', pcb, f'{Params.PCB_MOUNTING_HOLE_DIAM}')
+  pcb_mounting_hole = pcb.newObject("PartDesign::Pocket", "PCB_Mounting_Hole_Pocket")
+  pcb_mounting_hole.Profile = pcb_mounting_hole_s
+  pcb_mounting_hole.Type = 'ThroughAll'
+
+  pcb_mounting_hole_mirror = pcb.newObject("PartDesign::Mirrored", "PCB_Mounting_Hole_Mirror")
+  pcb_mounting_hole_mirror.Originals = pcb_mounting_hole
+  pcb_mounting_hole_mirror.MirrorPlane = pcb.Origin.OriginFeatures[5]
+  pcb.Tip = pcb_mounting_hole_mirror
 
   # Export DXF
   def exportDXF(source_obj, path: str):
@@ -658,7 +687,10 @@ def createTower(doc):
 
     importDXF.export([projection], path)
 
-  exportDXF(pcb_detailed, "exports/pcb-outline.dxf")
+  doc.RecomputesFrozen = False
+  doc.recompute()
+  doc.RecomputesFrozen = True
+  exportDXF(pcb, "exports/pcb-outline.dxf")
 
   return tower_back_cut
 
