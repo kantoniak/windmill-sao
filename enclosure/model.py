@@ -11,6 +11,8 @@ import FreeCAD as App
 import MeshPart, Mesh
 import Sketcher
 
+IMPORT_STEP = False
+
 doc = App.newDocument("Enclosure")
 Params = initParams(doc, {
   'SG90_BASE_HEIGHT': '24.1 mm',
@@ -1478,6 +1480,20 @@ windmill = doc.addObject("Part::Cut", "Windmill")
 windmill.Base = windmill_solids
 windmill.Tool = tunnel
 
+# Import STEP
+if IMPORT_STEP:
+  print('Importing PCB STEP file...')
+  pcb_import_shape = Part.read('../hardware/pcb.step')
+  print("> Imported shape type:", pcb_import_shape.ShapeType)
+  print("> Number of solids:", len(pcb_import_shape.Solids))
+  pcb_import = doc.addObject("Part::Feature", "PCB_Import")
+  pcb_import.Shape = pcb_import_shape
+  pcb_import.setExpression('Placement.Rotation.Angle', f'90 deg')
+  pcb_import.setExpression('Placement.Rotation.Axis', u'vector(1; 0; 0)')
+  pcb_import.setExpression('Placement.Base.y', f'{Params.WINDSHAFT_TO_CAP_BASE_HOR} + ({Params.TOWER_TOP_WIDTH}/2 * tan(22.5 deg))')
+  pcb_import.setExpression('Placement.Base.z', f'{Params.WINDSHAFT_TO_ROOF_TOP_VER} - {Params.TOTAL_HEIGHT} + {Params.OUTER_WALL_THICKNESS} + {Params.PCB_OUTLINE_TOLERANCE}')
+
+# Save FreeCAD document
 doc.RecomputesFrozen = False
 doc.recompute()
 doc.saveAs("exports/enclosure.FCStd")
