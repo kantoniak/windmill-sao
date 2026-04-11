@@ -674,18 +674,36 @@ def createTower(doc):
 
   # Export DXF
   def exportDXF(source_obj, path: str):
-    face = max([f for f in source_obj.Shape.Faces if f.Surface.isPlanar()], key=lambda f: f.Area)
-    face_normal = face.Surface.Axis
-    projection = Draft.make_shape2dview(pcb_detailed, projectionVector=face_normal)
+    planar_faces = [f for f in source_obj.Shape.Faces if f.Surface.isPlanar()]
+    if not planar_faces:
+      raise ValueError('No planar faces available for DXF export')
+
+    reference_face = max(planar_faces, key=lambda f: f.Area)
+    reference_axis = reference_face.Surface.Axis
+    reference_center = reference_face.BoundBox.Center
+
+    def is_coplanar(face):
+      axis = face.Surface.Axis
+      if abs(abs(axis.dot(reference_axis)) - 1.0) > 1e-6:
+        return False
+      face_center = face.BoundBox.Center
+      return abs(reference_axis.dot(face_center - reference_center)) < 1e-6
+
+    coplanar_faces = [f for f in planar_faces if is_coplanar(f)]
+
+    projection_source = doc.addObject('Part::Feature', 'PCB_DXF_Projection_Source')
+    projection_source.Shape = Part.Compound(coplanar_faces)
+
+    projection = Draft.make_shape2dview(projection_source, projectionVector=reference_axis)
+    projection.Label = f'{source_obj.Label}_DXF'
     projection.Placement.Rotation = App.Rotation(App.Vector(0, 0, 1), 90)
     projection_bbox_center = projection.Shape.BoundBox.Center
     projection.Placement.Base = projection_bbox_center
-
-    # FIMXE: Part::Part2DObjectPython: Link(s) to object(s) 'PCB_Detailed' go out of the allowed scope 'Shape2DView'.
-    # Instead, the linked object(s) reside within 'PCB_Base PCB_Base'.
     projection.recompute()
+    source_obj.addObject(projection)
 
     importDXF.export([projection], path)
+    doc.removeObject(projection_source.Name)
 
   doc.RecomputesFrozen = False
   doc.recompute()
