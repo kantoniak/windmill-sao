@@ -12,6 +12,7 @@ import MeshPart, Mesh
 import Sketcher
 
 IMPORT_STEP = False
+EXPORT_STL = False
 
 doc = App.newDocument("Enclosure")
 Params = initParams(doc, {
@@ -1499,22 +1500,22 @@ doc.recompute()
 doc.saveAs("exports/enclosure.FCStd")
 
 # Export STL
+if EXPORT_STL:
+  # High-definition mesh parameters (tune as needed)
+  linear_deflection = 0.01   # mm (smaller = finer)
+  angular_deflection = math.radians(0.5)  # radians (smaller = finer)
+  relative = False
 
-# High-definition mesh parameters (tune as needed)
-linear_deflection = 0.01   # mm (smaller = finer)
-angular_deflection = math.radians(0.5)  # radians (smaller = finer)
-relative = False
+  # Create mesh from the Part shape
+  windmill_mesh = MeshPart.meshFromShape(Shape=windmill.Shape,
+                                        LinearDeflection=linear_deflection,
+                                        AngularDeflection=angular_deflection,
+                                        Relative=relative)
 
-# Create mesh from the Part shape
-windmill_mesh = MeshPart.meshFromShape(Shape=windmill.Shape,
-                                      LinearDeflection=linear_deflection,
-                                      AngularDeflection=angular_deflection,
-                                      Relative=relative)
+  # Put mesh into a document object (required for Mesh.export)
+  mesh_obj = doc.addObject('Mesh::Feature', 'Windmill_Mesh_HD')
+  mesh_obj.Mesh = windmill_mesh
+  doc.recompute()
 
-# Put mesh into a document object (required for Mesh.export)
-mesh_obj = doc.addObject('Mesh::Feature', 'Windmill_Mesh_HD')
-mesh_obj.Mesh = windmill_mesh
-doc.recompute()
-
-# Export to STL (binary by default). Change path to your desired output.
-Mesh.export([mesh_obj], 'exports/enclosure.stl')
+  # Export to STL (binary by default). Change path to your desired output.
+  Mesh.export([mesh_obj], 'exports/enclosure.stl')
