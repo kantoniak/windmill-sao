@@ -53,7 +53,13 @@
           "min_clearance": 0.5
         }
       },
-      "diff_pair_dimensions": [],
+      "diff_pair_dimensions": [
+        {
+          "gap": 0.0,
+          "via_gap": 0.0,
+          "width": 0.0
+        }
+      ],
       "drc_exclusions": [],
       "meta": {
         "version": 2
@@ -140,7 +146,7 @@
         "min_track_width": 0.2,
         "min_via_annular_width": 0.1,
         "min_via_diameter": 0.5,
-        "solder_mask_to_copper_clearance": 0.0,
+        "solder_mask_to_copper_clearance": 0.005,
         "use_height_for_length_calcs": true
       },
       "teardrop_options": [
@@ -187,7 +193,15 @@
           "td_width_to_size_filter_ratio": 0.9
         }
       ],
-      "track_widths": [],
+      "track_widths": [
+        0.0,
+        0.3,
+        0.4,
+        0.5,
+        0.7,
+        1.0,
+        2.032
+      ],
       "tuning_pattern_settings": {
         "diff_pair_defaults": {
           "corner_radius_percentage": 80,
@@ -214,7 +228,16 @@
           "spacing": 0.6
         }
       },
-      "via_dimensions": [],
+      "via_dimensions": [
+        {
+          "diameter": 0.0,
+          "drill": 0.0
+        },
+        {
+          "diameter": 0.8,
+          "drill": 0.4
+        }
+      ],
       "zones_allow_external_fillets": false
     },
     "ipc2581": {
@@ -469,10 +492,12 @@
   },
   "libraries": {
     "pinned_footprint_libs": [
-      "jlcpcb-parts"
+      "jlcpcb-parts",
+      "kantoniak-kicad"
     ],
     "pinned_symbol_libs": [
-      "jlcpcb-parts"
+      "jlcpcb-parts",
+      "kantoniak-kicad"
     ]
   },
   "meta": {
@@ -513,7 +538,7 @@
       "gencad": "",
       "idf": "",
       "netlist": "",
-      "plot": "",
+      "plot": "production/",
       "pos_files": "",
       "specctra_dsn": "",
       "step": "",
@@ -682,7 +707,7 @@
         "uuid": "8df7e88c-ef31-4b76-9151-6aa024d57978"
       }
     ],
-    "used_designators": "LED1,J1-2",
+    "used_designators": "",
     "variants": []
   },
   "sheets": [
