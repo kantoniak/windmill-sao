@@ -43,6 +43,9 @@ fp-info-cache
 jlc-kicad-lib-loader.ini
 EASYEDA_MODELS
 
+## fabrication-toolkit-options
+fabrication-toolkit-options.json
+
 # Outputs
 exports/
 production/
