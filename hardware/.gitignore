@@ -1,11 +1,48 @@
-# KiCad backup files
+# KiCad Project files
+
+## Temporary files
+_autosave-*
+*-backups
+*-bak
+*-bak*
+*-cache*
+*-save.kicad_pcb
+*-save.pro
+*.000
 *.bak
 *.bck
+*.history
 *.kicad_pcb-bak
-*-backups/
+*.kicad_sch-bak
+*.tmp
+*~
+\#auto_saved_files\#
+\#auto_saved_files#
+~*
+~*.lck
+fp-info-cache
 
-# KiCad generated files
-*.erc
+## Netlist files (exported from Eeschema)
 *.net
-*-cache.lib
-*-rescue.lib
+
+## Autorouter files (exported from Pcbnew)
+*.dsn
+*.ses
+
+## Exported BOM files
+*.xml
+*.csv
+
+## Archived Backups (KiCad 6.0)
+**/*-backups/*.zip
+
+## Local project settings
+*.kicad_prl
+
+## jlc-kicad-lib-loader
+jlc-kicad-lib-loader.ini
+EASYEDA_MODELS
+
+# Outputs
+exports/
+production/
