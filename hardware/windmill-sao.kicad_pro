@@ -200,6 +200,7 @@
         0.5,
         0.7,
         1.0,
+        1.016,
         2.032
       ],
       "tuning_pattern_settings": {
@@ -236,6 +237,14 @@
         {
           "diameter": 0.8,
           "drill": 0.4
+        },
+        {
+          "diameter": 2.0,
+          "drill": 1.0
+        },
+        {
+          "diameter": 2.54,
+          "drill": 1.27
         }
       ],
       "zones_allow_external_fillets": false
@@ -247,7 +256,7 @@
       "internal_id": "",
       "mfg": "",
       "mpn": "",
-      "sch_revision": ""
+      "sch_revision": "1"
     },
     "layer_pairs": [],
     "layer_presets": [],
@@ -707,7 +716,7 @@
         "uuid": "8df7e88c-ef31-4b76-9151-6aa024d57978"
       }
     ],
-    "used_designators": "C1-4,R1-8,D1-2,#PWR11-13,CN1-2,TP5-6",
+    "used_designators": "",
     "variants": []
   },
   "sheets": [
