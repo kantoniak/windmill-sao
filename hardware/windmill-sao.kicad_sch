@@ -1550,7 +1550,7 @@
 					)
 				)
 			)
-			(property "Supplier Part" "C79111"
+			(property "LCSC Part #" "C79111"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -1775,7 +1775,7 @@
 					)
 				)
 			)
-			(property "Supplier Part" "C965555"
+			(property "LCSC Part #" "C965555"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -2194,7 +2194,7 @@
 					)
 				)
 			)
-			(property "Supplier Part" "C160404"
+			(property "LCSC Part #" "C160404"
 				(at 3.81 0 90)
 				(show_name no)
 				(do_not_autoplace no)
@@ -4376,6 +4376,17 @@
 				)
 			)
 		)
+		(property "LCSC Part #" "C21190"
+			(at 115.57 147.32 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "2"
 			(uuid "9ff8d17b-953a-4646-a0b7-dbf07bae9753")
 		)
@@ -4415,13 +4426,14 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 90.17 68.58 0)
+			(at 92.71 72.3899 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify left)
 			)
 		)
 		(property "Footprint" ""
@@ -4557,7 +4569,7 @@
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
-		(in_pos_files yes)
+		(in_pos_files no)
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "167c3012-a273-43c0-b3d6-f8d581cb1119")
@@ -4714,17 +4726,6 @@
 				)
 			)
 		)
-		(property "Supplier Part" "C79111"
-			(at 153.67 143.51 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
 		(property "Supplier" "LCSC"
 			(at 153.67 143.51 0)
 			(hide yes)
@@ -4737,6 +4738,17 @@
 			)
 		)
 		(property "LCSC Part Name" "220uF ±20% 6.3V MSL=3拆包后请尽快使用"
+			(at 153.67 143.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC Part #" "C79111"
 			(at 153.67 143.51 0)
 			(hide yes)
 			(show_name no)
@@ -4770,7 +4782,7 @@
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
-		(in_pos_files yes)
+		(in_pos_files no)
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "2bce6ab4-79c7-400e-91cc-2d762d6457e9")
@@ -4847,7 +4859,7 @@
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
-		(in_pos_files yes)
+		(in_pos_files no)
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "2ce978c1-b084-45ab-bd9a-4958b3ba530d")
@@ -4981,6 +4993,17 @@
 				)
 			)
 		)
+		(property "LCSC Part #" "C23345"
+			(at 121.92 106.68 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "2"
 			(uuid "bc39953c-3c87-4575-8048-3603074455a5")
 		)
@@ -5020,13 +5043,14 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 115.57 179.07 0)
+			(at 118.11 175.2599 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify left)
 			)
 		)
 		(property "Footprint" ""
@@ -5098,13 +5122,14 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 189.23 55.88 0)
+			(at 191.77 52.0699 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify left)
 			)
 		)
 		(property "Footprint" ""
@@ -5347,13 +5372,14 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 196.85 86.36 0)
+			(at 199.39 82.5499 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify left)
 			)
 		)
 		(property "Footprint" ""
@@ -5458,6 +5484,17 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor"
+			(at 175.26 143.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC Part #" "C14663"
 			(at 175.26 143.51 0)
 			(hide yes)
 			(show_name no)
@@ -5587,13 +5624,14 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 196.85 68.58 0)
+			(at 199.39 72.3899 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify left)
 			)
 		)
 		(property "Footprint" ""
@@ -5708,7 +5746,7 @@
 				)
 			)
 		)
-		(property "Supplier Part" "C5187096"
+		(property "LCSC Part #" "C5187096"
 			(at 90.17 106.68 0)
 			(hide yes)
 			(show_name no)
@@ -5812,13 +5850,14 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 262.89 33.02 0)
+			(at 265.43 36.8299 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify left)
 			)
 		)
 		(property "Footprint" ""
@@ -5933,6 +5972,17 @@
 				)
 			)
 		)
+		(property "LCSC Part #" "C25340"
+			(at 115.57 162.56 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "2"
 			(uuid "9ff8d17b-953a-4646-a0b7-dbf07bae9754")
 		)
@@ -5956,7 +6006,7 @@
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
-		(in_pos_files yes)
+		(in_pos_files no)
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "7ef0f664-6193-4ca9-ac37-02b38c6d20b1")
@@ -6091,6 +6141,17 @@
 				)
 			)
 		)
+		(property "LCSC Part #" "C14663"
+			(at 100.33 162.56 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "205a6fd3-4683-48a6-ae6d-343390eb0b8e")
 		)
@@ -6130,13 +6191,14 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 189.23 26.67 0)
+			(at 191.77 30.4799 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify left)
 			)
 		)
 		(property "Footprint" ""
@@ -6271,7 +6333,7 @@
 				)
 			)
 		)
-		(property "Supplier Part" "C965555"
+		(property "JLCPCB Part #" "C965555"
 			(at 48.26 152.4 0)
 			(hide yes)
 			(show_name no)
@@ -6294,6 +6356,17 @@
 			)
 		)
 		(property "LCSC Part Name" "RGB三色"
+			(at 48.26 152.4 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC Part #" "C965555"
 			(at 48.26 152.4 0)
 			(hide yes)
 			(show_name no)
@@ -6429,13 +6502,14 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 90.17 129.54 0)
+			(at 92.71 125.7299 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify left)
 			)
 		)
 		(property "Footprint" ""
@@ -6655,7 +6729,7 @@
 				)
 			)
 		)
-		(property "Supplier Part" "C160404"
+		(property "LCSC Part #" "C160404"
 			(at 176.53 74.93 90)
 			(hide yes)
 			(show_name no)
@@ -6723,7 +6797,7 @@
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
-		(in_pos_files yes)
+		(in_pos_files no)
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "a6ee2349-4130-4304-9af0-cd36d99c1407")
@@ -6816,13 +6890,14 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 39.37 175.26 0)
+			(at 41.91 171.4499 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify left)
 			)
 		)
 		(property "Footprint" ""
@@ -6937,6 +7012,17 @@
 				)
 			)
 		)
+		(property "LCSC Part #" "C23345"
+			(at 49.53 132.08 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "2"
 			(uuid "dd65df13-6608-4bab-ab13-ad0a45c522cf")
 		)
@@ -7007,6 +7093,17 @@
 		)
 		(property "Description" "Resistor"
 			(at 121.92 109.22 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC Part #" "C23345"
+			(at 121.92 109.22 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7088,6 +7185,17 @@
 			)
 		)
 		(property "Description" "Resistor"
+			(at 62.23 87.63 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC Part #" "C25804"
 			(at 62.23 87.63 0)
 			(hide yes)
 			(show_name no)
@@ -7180,6 +7288,17 @@
 				)
 			)
 		)
+		(property "LCSC Part #" "C25804"
+			(at 71.12 87.63 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "2"
 			(uuid "8b555a00-15bc-449b-993c-fb10d608d46a")
 		)
@@ -7262,6 +7381,17 @@
 				)
 			)
 		)
+		(property "LCSC Part #" "C2480"
+			(at 190.5 143.51 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "2"
 			(uuid "ea3496a1-8692-4971-8ea9-0f0b981570bd")
 		)
@@ -7301,13 +7431,14 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 262.89 52.07 0)
+			(at 265.43 48.2599 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify left)
 			)
 		)
 		(property "Footprint" ""
@@ -7379,13 +7510,14 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 175.26 129.54 0)
+			(at 177.8 133.3499 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify left)
 			)
 		)
 		(property "Footprint" ""
@@ -7457,13 +7589,14 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 39.37 130.81 0)
+			(at 41.91 134.6199 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify left)
 			)
 		)
 		(property "Footprint" ""
@@ -7577,6 +7710,17 @@
 				)
 			)
 		)
+		(property "LCSC Part #" "C14663"
+			(at 27.94 152.4 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "be52746c-e3a2-4653-aff0-ff26a653ba19")
 		)
@@ -7616,13 +7760,14 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 143.51 72.39 0)
+			(at 146.05 68.5799 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify left)
 			)
 		)
 		(property "Footprint" ""
@@ -7678,7 +7823,7 @@
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
-		(in_pos_files yes)
+		(in_pos_files no)
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "fdbe42e9-0ada-4c4b-b689-c9ec419d747d")

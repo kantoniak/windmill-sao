@@ -290,7 +290,7 @@
 				)
 			)
 		)
-		(property "Supplier Part" "C160404"
+		(property "LCSC Part #" "C160404"
 			(at 3.81 0 90)
 			(show_name no)
 			(do_not_autoplace no)

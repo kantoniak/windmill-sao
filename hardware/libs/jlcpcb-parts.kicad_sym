@@ -82,7 +82,7 @@
 				)
 			)
 		)
-		(property "Supplier Part" "C79111"
+		(property "LCSC Part #" "C79111"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -308,7 +308,7 @@
 				)
 			)
 		)
-		(property "Supplier Part" "C160404"
+		(property "LCSC Part #" "C160404"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -544,7 +544,7 @@
 				)
 			)
 		)
-		(property "Supplier Part" "C965555"
+		(property "LCSC Part #" "C965555"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
