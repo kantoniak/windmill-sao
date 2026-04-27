@@ -725,7 +725,13 @@
       "windmill-sao"
     ]
   ],
-  "text_variables": {},
+  "text_variables": {
+    "LICENSE": "CERN-OHL-S-2.0",
+    "PROJECT_NAME": "Windmill SAO",
+    "PROJECT_NAME_UPPERCASE": "WINDMILL SAO",
+    "PROJECT_REVISION": "1",
+    "PROJECT_URL": "https://github.com/kantoniak/windmill-sao"
+  },
   "tuning_profiles": {
     "meta": {
       "version": 0

@@ -21,3 +21,7 @@ sudo add-apt-repository ppa:freecad-maintainers/freecad-stable
 sudo apt update
 sudo apt install freecad
 ```
+
+## LICENSE
+
+This project is licensed under the `CERN-OHL-S-2.0` license - see the [LICENSE](LICENSE) file for details.
