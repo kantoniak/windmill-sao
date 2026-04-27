@@ -12,7 +12,7 @@ import MeshPart, Mesh
 import Sketcher
 
 IMPORT_STEP = False
-EXPORT_STL = False
+EXPORT_STL = True
 
 doc = App.newDocument("Enclosure")
 Params = initParams(doc, {
@@ -1484,7 +1484,7 @@ windmill.Tool = tunnel
 # Import STEP
 if IMPORT_STEP:
   print('Importing PCB STEP file...')
-  pcb_import_shape = Part.read('../hardware/pcb.step')
+  pcb_import_shape = Part.read('../hardware/exports/pcb.step')
   print("> Imported shape type:", pcb_import_shape.ShapeType)
   print("> Number of solids:", len(pcb_import_shape.Solids))
   pcb_import = doc.addObject("Part::Feature", "PCB_Import")
