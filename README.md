@@ -58,4 +58,8 @@ The PCB is built around CH32V003 and the firmware uses open-source [ch32fun](htt
 
 ## License
 
+[Open source hardware project: `[OSHW] PL000026`<br />
+<img src="readme/certification-mark-PL000026-wide.svg" alt="OSHW UID: PL000026" height="24px" />
+](https://certification.oshwa.org/pl000026.html)
+
 This project in its entirety is licensed under the `CERN-OHL-S-2.0` license - see the [LICENSE](LICENSE) file for details.
