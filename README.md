@@ -11,10 +11,12 @@ Some components are available in the repository only as scripts that generate re
 
 ## Enclosure
 
-Enclosure is built from a headless Python script that generates a FreeCAD model. Use FreeCAD 1.0 stable.
+The enclosure is built from a headless Python script that generates a FreeCAD model. Use FreeCAD 1.0 stable.
 
 <p align="center">
-  <img src="readme/preview-enclosure.jpg" alt="Previews of Windmill SAO enclosure" />
+  <a href="readme/preview-enclosure.png">
+    <img src="readme/preview-enclosure-thumb.jpg" alt="Previews of Windmill SAO enclosure" />
+  </a>
 </p>
 
 ### Windows
