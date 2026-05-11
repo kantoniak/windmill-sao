@@ -49,7 +49,9 @@ Enclosure is built from a headless Python script that generates a FreeCAD model.
 The PCB was designed in KiCad. See `hardware/` for the source files and releases for generated outputs.
 
 <p align="center">
-  <img src="readme/preview-pcb.jpg" alt="Previews of Windmill SAO PCB" />
+  <a href="readme/preview-pcb.png">
+    <img src="readme/preview-pcb-thumb.jpg" alt="Previews of Windmill SAO PCB" />
+  </a>
 </p>
 
 ## Firmware
