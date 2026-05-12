@@ -1499,23 +1499,23 @@ doc.RecomputesFrozen = False
 doc.recompute()
 doc.saveAs("exports/enclosure.FCStd")
 
+def export_to_stl(obj, export_path):
+    # High-definition mesh parameters
+    linear_deflection = 0.01
+    angular_deflection = math.radians(0.5)
+    relative = False
+
+    print(f'Building mesh from {obj.Name}...')
+    mesh = MeshPart.meshFromShape(obj.Shape, linear_deflection, angular_deflection, relative)
+
+    # Mesh must be a document object for export
+    mesh_obj = doc.addObject('Mesh::Feature', f'{obj.Name}_Mesh')
+    mesh_obj.Mesh = mesh
+    doc.recompute()
+
+    print(f'Exporting mesh to {export_path}...')
+    Mesh.export([mesh_obj], export_path)
+
 # Export STL
 if EXPORT_STL:
-  # High-definition mesh parameters (tune as needed)
-  linear_deflection = 0.01   # mm (smaller = finer)
-  angular_deflection = math.radians(0.5)  # radians (smaller = finer)
-  relative = False
-
-  # Create mesh from the Part shape
-  windmill_mesh = MeshPart.meshFromShape(Shape=windmill.Shape,
-                                        LinearDeflection=linear_deflection,
-                                        AngularDeflection=angular_deflection,
-                                        Relative=relative)
-
-  # Put mesh into a document object (required for Mesh.export)
-  mesh_obj = doc.addObject('Mesh::Feature', 'Windmill_Mesh_HD')
-  mesh_obj.Mesh = windmill_mesh
-  doc.recompute()
-
-  # Export to STL (binary by default). Change path to your desired output.
-  Mesh.export([mesh_obj], 'exports/enclosure.stl')
+  export_to_stl(windmill, 'exports/tower.stl')
