@@ -12,7 +12,7 @@ import MeshPart, Mesh
 import Sketcher
 
 IMPORT_STEP = False
-EXPORT_STL = True
+EXPORT_STL = False
 
 doc = App.newDocument("Enclosure")
 Params = initParams(doc, {
@@ -258,6 +258,7 @@ def createSG90(doc):
   sg90.recompute()
   return sg90
 
+"""
 servo = createSG90(doc)
 
 ### Position servo
@@ -275,6 +276,7 @@ toOriginAndRotate(servo,
     exprZ = f'-{Params.SG90_BASE_HEIGHT} - {Params.SG90_BUSHING_HEIGHT}',
     rotVector = App.Vector(1, 0, 0),
     rotDegreeExpr = f'-90 deg - {Params.WINDSHAFT_TILT}')
+"""
 
 # Supporting global geometry
 # Note to self: FreeCAD 1.1 will move to Part::DatumLine: https://github.com/FreeCAD/FreeCAD/issues/19095
@@ -549,8 +551,54 @@ def createTower(doc):
   tower_base_pad.Profile = binder_tower_bottom_s
   tower_base_pad.Length = 4
 
+  # Build window casing
+  def createWindowSketch(parent, name: str):
+    sketch = parent.newObject("Sketcher::SketchObject", name)
+    sketch.AttachmentSupport = tower_top_back
+    sketch.MapMode = 'ObjectXZ'
+    sketch.setExpression('AttachmentOffset.Rotation.Angle', '180 deg')
+    sketch.setExpression('AttachmentOffset.Rotation.Axis', u'vector(0; 1; 0)')
+
+    geometry = sketch.addGeometry([
+      Part.LineSegment(App.Vector(-1, 1), App.Vector(0, 2)),
+      Part.LineSegment(App.Vector(0, 2), App.Vector(1, 1)),
+      Part.LineSegment(App.Vector(1, 1), App.Vector(1, 0)),
+      Part.LineSegment(App.Vector(1, 0), App.Vector(-1, 0)),
+      Part.LineSegment(App.Vector(-1, 0), App.Vector(-1, 1)),
+    ], False)
+
+    (it_tl, it_tr, it_r, it_b, it_l) = geometry
+    sketch.addConstraint(constrainCoincidentPath([it_tl, it_tr, it_r, it_b, it_l], True) + [
+      Sketcher.Constraint('PointOnObject', *ORIGIN, it_b),
+      Sketcher.Constraint('Symmetric', it_b, CA.START_POINT, it_b, CA.END_POINT, AxisId.Y),
+      Sketcher.Constraint('Symmetric', it_r, CA.START_POINT, it_l, CA.END_POINT, AxisId.Y),
+      Sketcher.Constraint('Vertical', it_l),
+      Sketcher.Constraint('PointOnObject', it_tl, CA.END_POINT, AxisId.Y),
+    ])
+
+    addExpressionConstraint(sketch, "Angle", "90 deg", it_tr, CA.END_POINT, it_tl, CA.START_POINT)
+    sketch.recompute()
+    return (sketch, geometry)
+
+  tower_window_casing = doc.addObject("PartDesign::Body", "Tower_Window_Casing")
+
+  (tower_window_casing_s, tower_window_casing_s_geom) = createWindowSketch(tower_window_casing, f"{tower_window_casing.Label}_S")
+  tower_window_casing_s.setExpression('AttachmentOffset.Base.y', f'-1*1 mm + (1.5 mm + {Params.WINDSHAFT_TO_ROOF_TOP_VER} - {Params.TOTAL_HEIGHT} + {Params.WINDSHAFT_TO_CAP_BASE_VER}) + ({Params.PCB_THICKNESS} + {Params.PLA_EXPANSION} + 6 mm - {Params.PCB_THICKNESS} - {Params.PLA_EXPANSION}) + 19.53 mm')
+  tower_window_casing_s.setExpression('AttachmentOffset.Base.z', f'{Params.PCB_THICKNESS} + {Params.PLA_EXPANSION} + 6 mm + 19.53 mm ')
+
+  (c_it_tl, _, _, c_it_b, _) = tower_window_casing_s_geom
+  addExpressionConstraint(tower_window_casing_s, "DistanceX", f'5 mm + 2*1mm', c_it_b, CA.START_POINT, c_it_b, CA.END_POINT)
+  addExpressionConstraint(tower_window_casing_s, "DistanceY", f'7 mm + 1mm + sqrt(2)*1mm', *ORIGIN, c_it_tl, CA.END_POINT)
+  tower_window_casing_s.recompute()
+
+  tower_window_casing_pad = tower_window_casing.newObject('PartDesign::Pad', f"{tower_window_casing.Label}_Pad")
+  tower_window_casing_pad.Profile = tower_window_casing_s
+  tower_window_casing_pad.Type = 'TwoLengths'
+  tower_window_casing_pad.setExpression('Length', f'1.5 mm') # Arbitrary
+  tower_window_casing_pad.setExpression('Length2', f'0.5 mm') # Arbitrary
+
   tower_fuse = doc.addObject("Part::MultiFuse", "Tower_Fuse")
-  tower_fuse.Shapes = [tower_solid, tower_base]
+  tower_fuse.Shapes = [tower_solid, tower_window_casing, tower_base]
 
   # Cut the towers backside
   tower_back_offset = doc.addObject("Part::Offset2D", "Tower_Back_Offset")
@@ -565,6 +613,112 @@ def createTower(doc):
   tower_back_cut = doc.addObject("Part::Cut", "Tower_Back_Cut")
   tower_back_cut.Base = tower_fuse
   tower_back_cut.Tool = tower_back_offset_pad
+
+  # Cut the components compartment
+  # There is a "cyclic" dependency between generated PCB shape and the space we have to cut out for components.
+  tower_inner = doc.addObject("PartDesign::Body", "Tower_Inner")
+
+  tower_inner_base = tower_inner.newObject("PartDesign::Pad", f"{tower_inner.Label}_Base")
+  tower_inner_base.Profile = tower_back_offset
+  tower_inner_base.Reversed = True
+  tower_inner_base.setExpression('Length', f'{Params.PCB_THICKNESS} + {Params.PLA_EXPANSION} + 6 mm')
+
+  tower_inner_top_s = tower_inner.newObject("Sketcher::SketchObject", f"{tower_inner.Label}_Top")
+  tower_inner_top_s.AttachmentSupport = tower_top_back
+  tower_inner_top_s.MapMode = 'ObjectXZ'
+  tower_inner_top_s.setExpression('AttachmentOffset.Rotation.Angle', '180 deg')
+  tower_inner_top_s.setExpression('AttachmentOffset.Rotation.Axis', u'vector(0; 1; 0)')
+  tower_inner_top_s.setExpression('AttachmentOffset.Base.z', f'<<{tower_inner_base.Label}>>.Length')
+
+  (it_t, it_r, it_br, it_bl, it_l) = tower_inner_top_s.addGeometry([
+      Part.LineSegment(App.Vector(-1, 0), App.Vector(1, 0)),
+      Part.LineSegment(App.Vector(1, 0), App.Vector(1, -2)),
+      Part.LineSegment(App.Vector(1, -2), App.Vector(0, -1)),
+      Part.LineSegment(App.Vector(0, -1), App.Vector(-1, -2)),
+      Part.LineSegment(App.Vector(-1, -2), App.Vector(-1, 0)),
+    ], False)
+
+  tower_inner_top_s.addConstraint(constrainCoincidentPath([it_t, it_r, it_br, it_bl, it_l], True) + [
+    Sketcher.Constraint('PointOnObject', *ORIGIN, it_t),
+    Sketcher.Constraint('Symmetric', it_t, CA.START_POINT, it_t, CA.END_POINT, AxisId.Y),
+    Sketcher.Constraint('Symmetric', it_r, CA.END_POINT, it_l, CA.START_POINT, AxisId.Y),
+    Sketcher.Constraint('Vertical', it_l),
+    Sketcher.Constraint('PointOnObject', it_br, CA.END_POINT, AxisId.Y),
+  ])
+
+  addExpressionConstraint(tower_inner_top_s, "Angle", "90 deg", it_bl, CA.END_POINT, it_br, CA.START_POINT)
+  addExpressionConstraint(tower_inner_top_s, "DistanceX", f'{Params.TOWER_BOTTOM_WIDTH}', it_t, CA.START_POINT, it_t, CA.END_POINT)
+  addExpressionConstraint(tower_inner_top_s, "DistanceY", f'5 mm', it_br, CA.END_POINT, *ORIGIN) # Based on fixed attachment offset
+  tower_inner_top_s.recompute()
+
+  tower_inner_top_pocket = tower_inner.newObject("PartDesign::Pocket", f"{tower_inner.Label}_Top_Pocket")
+  tower_inner_top_pocket.Profile = tower_inner_top_s
+  tower_inner_top_pocket.Reversed = True
+  tower_inner_top_pocket.Type = 1
+
+  tower_inner_bottom_sbox = tower_inner.newObject("PartDesign::SubtractiveBox", f'{tower_inner.Label}_SBox')
+  tower_inner_bottom_sbox.AttachmentSupport = [back_plane, tower_bottom_center]
+  tower_inner_bottom_sbox.MapMode = 'TangentPlane'
+  tower_inner_bottom_sbox.setExpression('AttachmentOffset.Base.x', f'-{Params.TOWER_BOTTOM_WIDTH}/2')
+  tower_inner_bottom_sbox.setExpression('AttachmentOffset.Rotation.Angle', '180 deg')
+  tower_inner_bottom_sbox.setExpression('AttachmentOffset.Rotation.Axis', u'vector(1; 0; 0)')
+  tower_inner_bottom_sbox.MapReversed = True
+  tower_inner_bottom_sbox.setExpression('Length', f'10 mm') # Arbitrary
+  tower_inner_bottom_sbox.setExpression('Width', f'<<{tower_base_pad.Name}>>.Length')
+  tower_inner_bottom_sbox.setExpression('Height', f'<<{tower_inner_base.Name}>>.Length')
+
+  tower_inner_bottom_sbox_mirror = tower_inner.newObject("PartDesign::Mirrored", f"{tower_inner_bottom_sbox.Label}_Mirror")
+  tower_inner_bottom_sbox_mirror.Originals = tower_inner_bottom_sbox
+  tower_inner_bottom_sbox_mirror.MirrorPlane = tower_inner.Origin.OriginFeatures[5]
+  tower_inner.Tip = tower_inner_bottom_sbox_mirror
+
+  # Build window tunnel
+  (tower_window_tunnel_s, tower_window_tunnel_s_geom) = createWindowSketch(tower_inner, f"Tower_Window_Tunnel")
+  tower_window_tunnel_s.setExpression('AttachmentOffset.Base.y', f'19.53 mm + (1.5 mm + {Params.WINDSHAFT_TO_ROOF_TOP_VER} - {Params.TOTAL_HEIGHT} + {Params.WINDSHAFT_TO_CAP_BASE_VER}) + (<<{tower_inner_base.Label}>>.Length - {Params.PCB_THICKNESS} - {Params.PLA_EXPANSION})')
+  tower_window_tunnel_s.setExpression('AttachmentOffset.Base.z', f'19.53 mm + <<{tower_inner_base.Label}>>.Length')
+
+  (w_it_tl, _, _, w_it_b, _) = tower_window_tunnel_s_geom
+  addExpressionConstraint(tower_window_tunnel_s, "DistanceX", f'5 mm', w_it_b, CA.START_POINT, w_it_b, CA.END_POINT)
+  addExpressionConstraint(tower_window_tunnel_s, "DistanceY", f'7 mm', *ORIGIN, w_it_tl, CA.END_POINT)
+  tower_window_tunnel_s.recompute()
+
+  tower_window_tunnel_pad = tower_inner.newObject('PartDesign::Pad', f'Tower_Window_Tunnel_Pad')
+  tower_window_tunnel_pad.Profile = tower_window_tunnel_s
+  tower_window_tunnel_pad.UseCustomVector = 1
+  tower_window_tunnel_pad.Direction = (0, -1, 1)
+  tower_window_tunnel_pad.AlongSketchNormal = 1
+  tower_window_tunnel_pad.Reversed = 1
+  tower_window_tunnel_pad.setExpression('Length', f'19.53 mm') # Arbitrary
+
+  tower_window_tunnel_pad2 = tower_inner.newObject('PartDesign::Pad', f"Tower_Window_Tunnel_Pad2")
+  tower_window_tunnel_pad2.Profile = tower_window_tunnel_s
+  tower_window_tunnel_pad2.Reversed = 1
+  tower_window_tunnel_pad2.setExpression('Length', f'0.5 mm') # Arbitrary
+
+  # Cut out components compartment
+  tower_inner_cut = doc.addObject("Part::Cut", "Tower_Inner_Cut")
+  tower_inner_cut.Base = tower_back_cut
+  tower_inner_cut.Tool = tower_inner
+
+  # Cut out the QWIIC connector tunnel
+  tower_side_tunnel = doc.addObject("PartDesign::Body", "Tower_Side_Tunnel")
+
+  tower_qwiic = tower_side_tunnel.newObject("PartDesign::AdditiveBox", "Tower_QWIIC")
+  tower_qwiic.AttachmentSupport = tower_top_back
+  tower_qwiic.MapMode = 'ObjectXY'
+  tower_qwiic.MapReversed = True
+  tower_qwiic.setExpression('AttachmentOffset.Base.x', f'15 mm -{Params.TOWER_BOTTOM_WIDTH}/2')
+  tower_qwiic.setExpression('AttachmentOffset.Base.y', f'-Width')
+  tower_qwiic.setExpression('AttachmentOffset.Base.z', f'-13.5 mm -({Params.WINDSHAFT_TO_ROOF_TOP_VER} - {Params.TOTAL_HEIGHT} + {Params.WINDSHAFT_TO_CAP_BASE_VER})')
+  tower_qwiic.setExpression('AttachmentOffset.Rotation.Angle', '-107 deg')
+  tower_qwiic.setExpression('AttachmentOffset.Rotation.Axis', u'vector(0; 1; 0)')
+  tower_qwiic.setExpression('Width', f'5.5 mm') # Measured ~4.56
+  tower_qwiic.setExpression('Height', f'40 mm')
+  tower_qwiic.setExpression('Length', f'8 mm') # Measured 6
+
+  tower_side_cut = doc.addObject("Part::Cut", "Tower_Side_Cut")
+  tower_side_cut.Base = tower_inner_cut
+  tower_side_cut.Tool = tower_side_tunnel
 
   # Sketch the servo access tunnel
   tower_tunnelb_s = tower_sketches.newObject("Sketcher::SketchObject", "Tower_Tunnel_Backwards")
@@ -682,7 +836,7 @@ def createTower(doc):
   tower_heat_insert_holes.Links = [tower_heat_insert, tower_heat_insert_mirror]
 
   tower = doc.addObject("Part::Cut", "Tower")
-  tower.Base = tower_back_cut
+  tower.Base = tower_side_cut
   tower.Tool = tower_heat_insert_holes
 
   # Add PCB mounting holes
@@ -1469,6 +1623,217 @@ def createServoTunnel(doc):
   return servo_tunnel
 
 
+def createWindsail(doc):
+  windsail_base_point = doc.addObject("PartDesign::Point", "Windsail_Base_Point")
+  windsail_base_point.AttachmentSupport = windshaft_axis
+  windsail_base_point.MapMode = 'ObjectOrigin'
+  windsail_base_point.MapReversed = True
+  windsail_base_point.setExpression('AttachmentOffset.Base.z', f'-6 mm')
+
+  # Create mount
+  windsail_mount = doc.addObject("PartDesign::Body", "Windsail_Mount")
+
+  windsail_mount_base = windsail_mount.newObject("PartDesign::AdditiveCylinder", f'{windsail_mount.Label}_Base')
+  windsail_mount_base.AttachmentSupport = [windsail_base_point, windshaft_axis]
+  windsail_mount_base.MapMode = 'ObjectXY'
+  windsail_mount_base.setExpression('AttachmentOffset.Base.z', f'-1.75 mm')
+  windsail_mount_base.setExpression('Radius', f'3.6 mm')
+  windsail_mount_base.setExpression('Height', f'7 mm')
+
+  windsail_mount_teeth = windsail_mount.newObject("PartDesign::SubtractiveCylinder", f'{windsail_mount.Label}_Teeth')
+  windsail_mount_teeth.AttachmentSupport = windshaft_axis
+  windsail_mount_teeth.MapMode = 'ObjectXY'
+  windsail_mount_teeth.setExpression('Radius', f'2.5 mm') # TEETH RADIUS
+  windsail_mount_teeth.setExpression('Height', f'3.4 mm')
+
+  windsail_mount_front = windsail_mount.newObject("PartDesign::SubtractiveCylinder", f'{windsail_mount.Label}_Front')
+  windsail_mount_front.AttachmentSupport = windshaft_axis
+  windsail_mount_front.MapMode = 'ObjectXY'
+  windsail_mount_front.setExpression('AttachmentOffset.Base.z', f'4.9 mm')
+  windsail_mount_front.setExpression('Radius', f'2.7 mm')
+  windsail_mount_front.setExpression('Height', f'50 mm')
+
+  windsail_mount_passthrough = windsail_mount.newObject("PartDesign::SubtractiveCylinder", f'{windsail_mount.Label}_Passthrough')
+  windsail_mount_passthrough.AttachmentSupport = windshaft_axis
+  windsail_mount_passthrough.MapMode = 'ObjectXY'
+  windsail_mount_passthrough.setExpression('Radius', f'1.25 mm')
+  windsail_mount_passthrough.setExpression('Height', f'50 mm')
+
+  windsail_mount_arm = windsail_mount.newObject("PartDesign::AdditiveBox", f'{windsail_mount.Label}_Arm')
+  windsail_mount_arm.AttachmentSupport = [windsail_base_point, windshaft_axis]
+  windsail_mount_arm.MapMode = 'ObjectXY'
+  windsail_mount_arm.MapReversed = True
+  windsail_mount_arm.setExpression('AttachmentOffset.Base.x', f'3 mm')
+  windsail_mount_arm.setExpression('AttachmentOffset.Base.y', f'-0.8 mm')
+  windsail_mount_arm.setExpression('AttachmentOffset.Base.z', f'0.75 mm')
+  windsail_mount_arm.setExpression('Length', f'3 mm')
+  windsail_mount_arm.setExpression('Width', f'1.6 mm')
+  windsail_mount_arm.setExpression('Height', f'1 mm')
+
+  # FIXME: Link out of allowed scope but binder doesn't work as axis
+  windsail_mount_arms = windsail_mount.newObject("PartDesign::PolarPattern", f'{windsail_mount.Label}_Arms')
+  windsail_mount_arms.Originals = [windsail_mount_arm]
+  windsail_mount_arms.Axis = (windshaft_axis, [''])
+  windsail_mount_arms.Occurrences = 4
+  windsail_mount.Tip = windsail_mount_arms
+
+  # Create stocks
+  def createStockBox(parent, object_name: str, rotation_angle: int):
+    stock = parent.newObject("PartDesign::AdditiveBox", object_name)
+    stock.AttachmentSupport = [windsail_base_point, windshaft_axis]
+    stock.MapMode = 'NormalToEdge'
+    stock.MapReversed = True
+    stock.setExpression('Length', f'57 mm * 2')
+    stock.setExpression('Width', f'4 mm')
+    stock.setExpression('Height', f'2 mm')
+    stock.setExpression('AttachmentOffset.Base.z', f'0.75 mm')
+
+    groove = parent.newObject("PartDesign::SubtractiveBox", f'{object_name}_Groove')
+    groove.AttachmentSupport = [windsail_base_point, windshaft_axis]
+    groove.MapMode = 'ObjectXY'
+    groove.MapReversed = True
+    groove.setExpression('Length', f'(6 mm + {Params.PLA_EXPANSION})*2')
+    groove.setExpression('Width', f'1.6 mm + 2*{Params.PLA_EXPANSION}')
+    groove.setExpression('Height', f'1 mm + {Params.PLA_EXPANSION}')
+    groove.setExpression('AttachmentOffset.Base.z', f'0.75 mm')
+
+    match rotation_angle:
+      case 0:
+        stock.setExpression('AttachmentOffset.Base.x', f'-57 mm')
+        stock.setExpression('AttachmentOffset.Base.y', f'-(4 mm / 2)')
+        groove.setExpression('AttachmentOffset.Base.x', f'-6 mm - {Params.PLA_EXPANSION}')
+        groove.setExpression('AttachmentOffset.Base.y', f'-0.8 mm - {Params.PLA_EXPANSION}')
+
+      case 90:
+        stock.setExpression('AttachmentOffset.Base.y', f'-57 mm')
+        stock.setExpression('AttachmentOffset.Base.x', f'(4 mm / 2)')
+        stock.setExpression('AttachmentOffset.Rotation.Angle', f'{rotation_angle} deg')
+        stock.AttachmentOffset.Rotation.Axis = App.Vector(0, 0, 1)
+        groove.setExpression('AttachmentOffset.Base.y', f'-6 mm - {Params.PLA_EXPANSION}')
+        groove.setExpression('AttachmentOffset.Base.x', f'0.8 mm + {Params.PLA_EXPANSION}')
+        groove.setExpression('AttachmentOffset.Rotation.Angle', f'{rotation_angle} deg')
+        groove.AttachmentOffset.Rotation.Axis = App.Vector(0, 0, 1)
+
+      case _:
+        raise NotImplementedError
+
+    return stock
+
+  windsail_stocks = doc.addObject("PartDesign::Body", "Windsail_Stocks")
+
+  windsail_stocks_center = windsail_stocks.newObject("PartDesign::AdditiveCylinder", f'{windsail_stocks.Label}_Center')
+  windsail_stocks_center.AttachmentSupport = [windsail_base_point, windshaft_axis]
+  windsail_stocks_center.MapMode = 'ObjectXY'
+  windsail_stocks_center.MapReversed = True
+  windsail_stocks_center.setExpression('AttachmentOffset.Base.z', f'0.75 mm')
+  windsail_stocks_center.setExpression('Radius', f'3.6 mm + 0.2 mm + 1 mm')
+  windsail_stocks_center.setExpression('Height', f'2 mm + 0.25 mm')
+
+  windsail_stock_x = createStockBox(windsail_stocks, "Windsail_StockX", rotation_angle = 0)
+  windsail_stock_y = createStockBox(windsail_stocks, "Windsail_StockY", rotation_angle = 90)
+
+  windsail_stocks_hole = windsail_stocks.newObject("PartDesign::SubtractiveCylinder", f'{windsail_stocks.Label}_Hole')
+  windsail_stocks_hole.AttachmentSupport = [windsail_base_point, windshaft_axis]
+  windsail_stocks_hole.MapMode = 'ObjectXY'
+  windsail_stocks_hole.MapReversed = True
+  windsail_stocks_hole.setExpression('AttachmentOffset.Base.z', f'0.75 mm')
+  windsail_stocks_hole.setExpression('Radius', f'3.6 mm + 0.2 mm')
+  windsail_stocks_hole.setExpression('Height', f'1 mm + {Params.PLA_EXPANSION}')
+
+  windsail_stocks_passthrough = windsail_stocks.newObject("PartDesign::SubtractiveCylinder", f'{windsail_stocks.Label}_Passthrough')
+  windsail_stocks_passthrough.AttachmentSupport = [windsail_base_point, windshaft_axis]
+  windsail_stocks_passthrough.MapMode = 'ObjectXY'
+  windsail_stocks_passthrough.MapReversed = True
+  windsail_stocks_passthrough.setExpression('Radius', f'1.25 mm')
+  windsail_stocks_passthrough.setExpression('Height', f'50 mm')
+
+  # Sailbars
+  windsail_sailbar = doc.addObject("Part::Compound", "Windsail_Sailbair")
+
+  def addSingleSailbarSharedProperties(obj):
+    obj.AttachmentSupport = [windsail_base_point, windshaft_axis]
+    obj.MapMode = 'ObjectXY'
+    obj.MapReversed = True
+    obj.setExpression('Length', f'0.8 mm')
+    obj.setExpression('Width', f'0.8 mm')
+    obj.setExpression('Height', f'3 mm')
+
+  windsail_sailbar_y_long = doc.addObject("Part::Box", "Windsail_SailbarY_Long")
+  addSingleSailbarSharedProperties(windsail_sailbar_y_long)
+  windsail_sailbar_y_long.setExpression('Width', f'12.2 mm')
+  windsail_sailbar_y_long.setExpression('AttachmentOffset.Base.x', f'12 mm')
+  windsail_sailbar_y_long.setExpression('AttachmentOffset.Base.y', f'-12.2 mm + 2 mm')
+
+  windsail_sailbar_y_short = doc.addObject("Part::Box", "Windsail_SailbarY_Short")
+  addSingleSailbarSharedProperties(windsail_sailbar_y_short)
+  windsail_sailbar_y_short.setExpression('Width', f'4.6 mm')
+  windsail_sailbar_y_short.setExpression('AttachmentOffset.Base.x', f'12 mm')
+  windsail_sailbar_y_short.setExpression('AttachmentOffset.Base.y', f'-0.8 mm + 2mm')
+
+  windsail_sailbar_x_top = doc.addObject("Part::Box", "Windsail_SailbarX_Top")
+  addSingleSailbarSharedProperties(windsail_sailbar_x_top)
+  windsail_sailbar_x_top.setExpression('Length', f'57 mm - 12 mm')
+  windsail_sailbar_x_top.setExpression('AttachmentOffset.Base.x', f'12 mm')
+  windsail_sailbar_x_top.setExpression('AttachmentOffset.Base.y', f'4.6 mm + 0.4 mm')
+
+  windsail_sailbar_x_mid = doc.addObject("Part::Box", "Windsail_SailbarX_Mid")
+  addSingleSailbarSharedProperties(windsail_sailbar_x_mid)
+  windsail_sailbar_x_mid.setExpression('Length', f'57 mm - 12 mm')
+  windsail_sailbar_x_mid.setExpression('AttachmentOffset.Base.x', f'12 mm')
+  windsail_sailbar_x_mid.setExpression('AttachmentOffset.Base.y', f'-0.8 mm + 2mm')
+
+  def createSailbarPathArray(obj, count: int, distance_expr: str, alongY: bool = False):
+    # Create sketch (path)
+    path_s = doc.addObject("Sketcher::SketchObject", f"{obj.Name}_Path")
+    path_s.AttachmentSupport = [windsail_base_point, windshaft_axis]
+    path_s.MapMode = 'ObjectXY'
+    path_s.MapReversed = True
+    path_s.setExpression('AttachmentOffset', f'<<{obj.Name}>>.AttachmentOffset')
+
+    line_end_vector = App.Vector(0,-1,0) if alongY else App.Vector(1,0,0)
+    (line,) = path_s.addGeometry([
+      Part.LineSegment(App.Vector(0,0,0), line_end_vector),
+    ], False)
+
+    path_s.addConstraint([
+      Sketcher.Constraint('Coincident', line, CA.START_POINT, *ORIGIN),
+      Sketcher.Constraint('Vertical' if alongY else 'Horizontal', line),
+    ])
+
+    addExpressionConstraint(path_s, "Distance", distance_expr, line, CA.START_POINT, line, CA.END_POINT)
+    path_s.recompute()
+
+    # Create path array
+    path_array = Draft.make_path_array(
+      base_object = obj,
+      path_object = path_s,
+      count = count,
+      subelements = ["Edge1"],
+      end_offset = 1)
+    path_array.setExpression('EndOffset', f'0.8 mm')
+    path_array.Label = f"{obj.Name}_PathArray"
+
+    return (path_s, path_array)
+
+  (windsail_sailbar_y_long_path_s, windsail_sailbar_y_long_pattern) = createSailbarPathArray(windsail_sailbar_y_long, 16, "57 mm - 12 mm")
+  (windsail_sailbar_y_short_path_s, windsail_sailbar_y_short_pattern) = createSailbarPathArray(windsail_sailbar_y_short, 11, "57 mm - 12 mm")
+  (windsail_sailbar_x_mid_path_s, windsail_sailbar_x_mid_pattern) = createSailbarPathArray(windsail_sailbar_x_mid, 4, "12.2 mm", alongY=True)
+
+  windsail_sailbar.Links = [
+    windsail_sailbar_x_top,
+    windsail_sailbar_x_mid_pattern,
+    windsail_sailbar_y_long_pattern,
+    windsail_sailbar_y_short_pattern]
+
+  windsail_sailbars_polar = Draft.make_polar_array(windsail_sailbar, number=4, angle=360.0, center=FreeCAD.Vector(0, 0, 0), use_link=True)
+  windsail_sailbars_polar.AxisReference = windshaft_axis
+  windsail_sailbars_polar.Label = "Windsail_Sailbars_PolarArray"
+
+  windsail = doc.addObject("Part::Compound", "Windsail")
+  windsail.Links = [windsail_stocks, windsail_sailbars_polar]
+
+  return (windsail_mount, windsail)
+
 tower = createTower(doc)
 cap = createCap(doc)
 tunnel = createServoTunnel(doc)
@@ -1493,6 +1858,9 @@ if IMPORT_STEP:
   pcb_import.setExpression('Placement.Rotation.Axis', u'vector(1; 0; 0)')
   pcb_import.setExpression('Placement.Base.y', f'{Params.WINDSHAFT_TO_CAP_BASE_HOR} + ({Params.TOWER_TOP_WIDTH}/2 * tan(22.5 deg))')
   pcb_import.setExpression('Placement.Base.z', f'{Params.WINDSHAFT_TO_ROOF_TOP_VER} - {Params.TOTAL_HEIGHT} + {Params.OUTER_WALL_THICKNESS} + {Params.PCB_OUTLINE_TOLERANCE}')
+
+# Build windsail
+(windsail_mount, windsail) = createWindsail(doc)
 
 # Save FreeCAD document
 doc.RecomputesFrozen = False
@@ -1519,3 +1887,5 @@ def export_to_stl(obj, export_path):
 # Export STL
 if EXPORT_STL:
   export_to_stl(windmill, 'exports/tower.stl')
+  export_to_stl(windsail_mount, 'exports/windsail-mount.stl')
+  export_to_stl(windsail, 'exports/windsail.stl')
