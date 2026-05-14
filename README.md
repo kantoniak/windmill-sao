@@ -9,6 +9,15 @@ The project consists of:
 
 Some components are available in the repository only as scripts that generate resources. See the releases for generated outputs.
 
+## Assembly
+
+1. Solder the connector and the 0.1" pins **on the side with the text**.
+2. Insert the servo into the tower assembly, **cables up**, yellow left, black right (viewed from the back).
+3. Push the small plastic 3D printed connector onto the servo output shaft.
+4. Mount the windsail onto the connector and secure with the servo screw (silver, wide head).
+5. Screw the board to the back.
+6. Connect the servo to the board: yellow to PWM, black to SGND.
+
 ## Enclosure
 
 The enclosure is built from a headless Python script that generates a FreeCAD model. Use FreeCAD 1.0 stable.
