@@ -8,6 +8,65 @@ int8_t off_min_reverse;   // offset from base_min_reverse
 int8_t off_min_forward;   // offset from base_min_forward
 int8_t off_max_forward;   // offset from base_max_forward
 
+#define WS2812DMA_IMPLEMENTATION
+#define WSRAW
+extern "C" {
+  #include "ws2812b_dma_spi_led_driver.h"
+}
+#ifndef NUM_NEOPIXELS
+#define NUM_NEOPIXELS 1
+#define DMALEDS 4
+#endif
+
+static volatile uint8_t neopixel_colors[NUM_NEOPIXELS][3];
+extern "C" uint32_t WS2812BLEDCallback(int ledno);
+
+// Helper: pack r,g,b into 24-bit GRB value expected by the driver
+static inline uint32_t neopixel_pack_color(uint8_t r, uint8_t g, uint8_t b)
+{
+    // WS2812B expects GRB order (most common). Adjust if your LED uses different order.
+    return ((uint32_t)g << 16) | ((uint32_t)r << 8) | (uint32_t)b;
+}
+
+// Public API: set color for LED index 0..NUM_NEOPIXELS-1
+void neopixel_set_color(int index, uint8_t r, uint8_t g, uint8_t b)
+{
+    if (index < 0 || index >= NUM_NEOPIXELS) return;
+    // Store color in buffer used by callback
+    neopixel_colors[index][0] = r;
+    neopixel_colors[index][1] = g;
+    neopixel_colors[index][2] = b;
+}
+
+// Convenience: set single LED (index 0) color and start DMA
+void neopixel_set_color_and_show(uint8_t r, uint8_t g, uint8_t b)
+{
+    neopixel_set_color(0, r, g, b);
+    // Start DMA transfer for NUM_NEOPIXELS LEDs
+    WS2812BDMAStart(NUM_NEOPIXELS);
+}
+
+// Initialize neopixel subsystem (call once in setup)
+void neopixel_init(void)
+{
+    // Clear color buffer
+    memset((void*)neopixel_colors, 0, sizeof(neopixel_colors));
+    // Initialize the WS2812 DMA/SPI driver
+    WS2812BDMAInit();
+}
+
+// This is the callback the driver will call from the ISR to fetch LED color.
+// It must return a 24-bit (or 32-bit for WSRAW) packed color value for the given ledno.
+extern "C" uint32_t WS2812BLEDCallback(int ledno)
+{
+    if (ledno < 0 || ledno >= NUM_NEOPIXELS) return 0;
+    // Read volatile buffer into local variables to avoid tearing
+    uint8_t r = neopixel_colors[ledno][0];
+    uint8_t g = neopixel_colors[ledno][1];
+    uint8_t b = neopixel_colors[ledno][2];
+    return neopixel_pack_color(r, b, g);
+}
+
 void setup_servo()
 {
   // Enable GPIOC and TIM1 clocks
@@ -126,6 +185,49 @@ void set_servo_speed_float(int8_t speed,
   TIM1->CH4CVR = (uint16_t)(pulse_f + 0.5f);
 }
 
+void init_(int8_t speed,
+                         int8_t off_max_reverse,
+                         int8_t off_min_reverse,
+                         int8_t off_min_forward,
+                         int8_t off_max_forward)
+{
+  // Compute calibrated pulse widths.
+  uint16_t max_reverse = 1000 + off_max_reverse;
+  uint16_t min_reverse = 1470 + off_min_reverse;
+  uint16_t min_forward = 1530 + off_min_forward;
+  uint16_t max_forward = 2000 + off_max_forward;
+
+  // Clamp speed.
+  if (speed < -127) speed = -127;
+  if (speed >  127) speed =  127;
+
+  // Deadzone.
+  if (speed == 0) {
+    TIM1->CH4CVR = (min_reverse + min_forward) / 2;
+    return;
+  }
+
+  int32_t pulse_us;
+
+  if (speed < 0) {
+    // Reverse: -127..-1 → max_reverse..min_reverse
+    int16_t s = -speed;  // 1..127
+    int32_t range = (int32_t)(max_reverse - min_reverse);
+    pulse_us = min_reverse + (range * s) / 127;
+  } else {
+    // Forward: +1..+127 → min_forward..max_forward
+    int16_t s = speed;   // 1..127
+    int32_t range = (int32_t)(max_forward - min_forward);
+    pulse_us = min_forward + (range * s) / 127;
+  }
+
+  // Clamp for safety.
+  if (pulse_us < max_reverse) pulse_us = max_reverse;
+  if (pulse_us > max_forward) pulse_us = max_forward;
+
+  TIM1->CH4CVR = (uint16_t)pulse_us;
+}
+
 void set_servo_speed_int(int8_t speed,
                          int8_t off_max_reverse,
                          int8_t off_min_reverse,
@@ -174,104 +276,22 @@ int main()
   SystemInit();
   Delay_Ms(100);
 
+  neopixel_init();
+  Delay_Ms(50);
+  neopixel_set_color_and_show(255, 150, 0);
+
   setup_servo();
   uint16_t neutral_us = 1500;
 
-  funDigitalWrite(PC2, FUN_HIGH);
-  set_servo_speed_int(1, 0, 0, 0, 0);
-  Delay_Ms(1000);
-
-  funDigitalWrite(PC2, FUN_LOW);
-  set_servo_speed_int(32, 0, 0, 0, 0);
-  Delay_Ms(1000);
-
-  funDigitalWrite(PC2, FUN_HIGH);
-  set_servo_speed_int(64, 0, 0, 0, 0);
-  Delay_Ms(1000);
-
-  funDigitalWrite(PC2, FUN_LOW);
-  set_servo_speed_int(96, 0, 0, 0, 0);
-  Delay_Ms(1000);
-
-  funDigitalWrite(PC2, FUN_HIGH);
-  set_servo_speed_int(127, 0, 0, 0, 0);
-  Delay_Ms(1000);
-
-  funDigitalWrite(PC2, FUN_LOW);
-  set_servo_speed_int(-127, 0, 0, 0, 0);
-  Delay_Ms(1000);
-
-  funDigitalWrite(PC2, FUN_HIGH);
-  set_servo_speed_int(127, 0, 0, 0, 0);
-  Delay_Ms(1000);
-
-  funDigitalWrite(PC2, FUN_LOW);
-  set_servo_speed_int(0, 0, 0, 0, 0);
-  Delay_Ms(1000);
-
-  funDigitalWrite(PC2, FUN_HIGH);
-  set_servo_speed_int(127, 0, 0, 0, 0);
-  Delay_Ms(1000);
-
-  funDigitalWrite(PC2, FUN_LOW);
-  set_servo_speed_int(-127, 0, 0, 0, 0);
-  Delay_Ms(5000);
-
-  funDigitalWrite(PC2, FUN_HIGH);
-  while (1) {}
-
-  while(true) {
-    /*
-    set_servo_speed(0, neutral_us);
-    Delay_Ms(500);
-    set_servo_speed(64, neutral_us);
-    Delay_Ms(500);
-    set_servo_speed(127, neutral_us);
-    Delay_Ms(500);
-    set_servo_speed(64, neutral_us);
-    Delay_Ms(500);
-    set_servo_speed(0, neutral_us);
-    Delay_Ms(500);
-    set_servo_speed(-64, neutral_us);
-    Delay_Ms(500);
-    set_servo_speed(-127, neutral_us);
-    Delay_Ms(500);
-    set_servo_speed(-64, neutral_us);
-    Delay_Ms(500);
-    */
-    /*
-    set_servo_speed_float(0, 0, 0, 0, 0);
-    Delay_Ms(500);
-    set_servo_speed_float(64, 0, 0, 0, 0);
-    Delay_Ms(500);
-    set_servo_speed_float(127, 0, 0, 0, 0);
-    Delay_Ms(500);
-    set_servo_speed_float(64, 0, 0, 0, 0);
-    Delay_Ms(500);
-    set_servo_speed_float(0, 0, 0, 0, 0);
-    Delay_Ms(500);
-    set_servo_speed_float(-64, 0, 0, 0, 0);
-    Delay_Ms(500);
-    set_servo_speed_float(-127, 0, 0, 0, 0);
-    Delay_Ms(500);
-    set_servo_speed_float(-64, 0, 0, 0, 0);
-    Delay_Ms(500);
-    */
-    set_servo_speed_int(0, 0, 0, 0, 0);
-    Delay_Ms(500);
-    set_servo_speed_int(64, 0, 0, 0, 0);
-    Delay_Ms(500);
-    set_servo_speed_int(127, 0, 0, 0, 0);
-    Delay_Ms(500);
-    set_servo_speed_int(64, 0, 0, 0, 0);
-    Delay_Ms(500);
-    set_servo_speed_int(0, 0, 0, 0, 0);
-    Delay_Ms(500);
-    set_servo_speed_int(-64, 0, 0, 0, 0);
-    Delay_Ms(500);
-    set_servo_speed_int(-127, 0, 0, 0, 0);
-    Delay_Ms(500);
-    set_servo_speed_int(-64, 0, 0, 0, 0);
-    Delay_Ms(500);
+  while (true) {
+    set_servo_speed_int(-48, 0, 0, 0, 0);
+    Delay_Ms(5000);
+    for (size_t i = 0; i < 5; i++) {
+      // FIXME: That's not exactly 1s due to CPU cycles
+      set_servo_speed_int(127, 0, 0, 0, 0);
+      Delay_Ms(100);
+      set_servo_speed_int(0, 0, 0, 0, 0);
+      Delay_Ms(900);
+    }
   }
 }
