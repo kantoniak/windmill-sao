@@ -1,5 +1,8 @@
 # Windmill SAO
 
+> [!IMPORTANT]
+> **Hackaday Europe 2026** folks: Please use `README.md` from the [`rev1-rc2-wip` branch](https://github.com/kantoniak/windmill-sao/tree/kantoniak/rev1-rc2-wip).
+
 Dutch [tower mill](https://en.wikipedia.org/wiki/Tower_mill) in a [SAO (Simple Add-on/Shitty Add-on)](https://hackaday.io/project/52950-shitty-add-ons/log/159806-introducing-the-shitty-add-on-v169bis-standard) form factor.
 
 The project consists of:
