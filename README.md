@@ -11,12 +11,36 @@ Some components are available in the repository only as scripts that generate re
 
 ## Assembly
 
-1. Solder the connector and the 0.1" pins **on the side with the text**.
-2. Insert the servo into the tower assembly, **cables up**, yellow left, black right (viewed from the back).
-3. Push the small plastic 3D printed connector onto the servo output shaft.
-4. Mount the windsail onto the connector and secure with the servo screw (silver, wide head).
-5. Screw the board to the back.
-6. Connect the servo to the board: yellow to PWM, black to SGND.
+It's quick - you only need a Philips screwdriver and light soldering.
+
+> [!IMPORTANT]
+> Before starting, check the contents of your kit. I have spares if anything is missing or damaged.
+> You should have:
+> * 3D‑printed tower with 2 embedded thread inserts
+> * 3D‑printed windsail
+> * Custom PCB
+> * SG‑90 servo kit:
+>   * Small bag with silver screws (and servo arms, not used)
+>   * Small bag with components:
+>     * 2× black M2 screws
+>     * 2× 3D‑printed mount pieces (one is extra)
+>     * SAO connector + 1×3 0.1" header pins
+
+1. Solder the SAO connector and the 0.1" pins **on the side with the text**.
+2. Insert the servo into the tower, **cables pointing up**. When viewed from the back: yellow left, black right.
+3. Push the small 3D‑printed coupler onto the servo output shaft.
+4. Place the windsail onto the coupler and secure it with the wide‑head silver servo screw.
+5. Screw the PCB onto the back of the tower using the black M2 screws.
+6. Connect the servo to the board: **yellow to PWM**, **black to SGND**.
+
+> [!TIP]
+> The programming pads are on a 0.1" grid for easy access.
+> You only need `3V3`, `GND`, and `SWIO`; they are in a straight line.
+>
+> For flashing, use PlatformIO with the open‑source
+> **[minilink](https://github.com/cnlohr/ch32fun/blob/master/minichlink/README.md)** programmer.
+> Elliot also wrote a [Pico‑based flasher](https://github.com/hexagon5un/pico_ch32v003_prog/) (not tested by me).
+
 
 ## Enclosure
 
